@@ -16,10 +16,10 @@ class robot:
         self.x = x
         self.y = y
         self.heading = heading
-        self.turning = turning # only applies to target robots who constantly move in a circle
-        self.distance = distance # only applies to target bot, who always moves at same speed.
-        self.turning_noise    = 0.0
-        self.distance_noise    = 0.0
+        self.turning = turning      # only applies to target robots who constantly move in a circle
+        self.distance = distance    # only applies to target bot, who always moves at same speed.
+        self.turning_noise = 0.0
+        self.distance_noise = 0.0
         self.measurement_noise = 0.0
 
 
@@ -63,5 +63,3 @@ class robot:
     def __repr__(self):
         """This allows us to print a robot's position"""
         return '[%.5f, %.5f]'  % (self.x, self.y)
-
-

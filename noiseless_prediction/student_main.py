@@ -55,10 +55,12 @@
 
 # These import steps give you access to libraries which you may (or may
 # not) want to use.
-from robot import *
+
+from noiseless_prediction.robot import *
 from math import *
-from matrix import *
+from noiseless_prediction.matrix import *
 import random
+import numpy as np
 
 
 # This is the function you have to write. The argument 'measurement' is a
@@ -73,6 +75,39 @@ def estimate_next_pos(measurement, OTHER = None):
 
     # You must return xy_estimate (x, y), and OTHER (even if it is None)
     # in this order for grading purposes.
+
+    # todo использовать фильтр калмана
+
+    # xy_estimate = None
+
+    dt = 1
+
+    def f(X):
+        x, y, v, b, db = X
+        x, y, v, b, db = x * sin(b) * v * dt, y + cos(b) * v * dt, v, b + db, db
+        return x, y, v, b, db
+
+    def get_F(X):
+        pass        # todo матрица Якоби
+
+    x_measurement, y_measurement = measurement
+
+    if OTHER is None:
+        H = np.matrix([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]])
+        P = np.matrix(np.identity(5) * 1000)
+        X = np.matrix([x_measurement, y_measurement, 0, 0, 0]).T
+        F = get_F(X)
+
+        OTHER = X, P, H, F
+    else:
+        X, P, H, F = OTHER
+
+    # if not OTHER: # this is the first measurement
+    #     OTHER = measurement
+    OTHER.append(measurement)
+
+    xy_estimate = X[:2]
+
     return xy_estimate, OTHER
 
 # A helper function you may find useful.
@@ -82,31 +117,31 @@ def distance_between(point1, point2):
     x2, y2 = point2
     return sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-# # This is here to give you a sense for how we will be running and grading
-# # your code. Note that the OTHER variable allows you to store any
-# # information that you want.
-# def demo_grading(estimate_next_pos_fcn, target_bot, OTHER = None):
-#     localized = False
-#     distance_tolerance = 0.01 * target_bot.distance
-#     ctr = 0
-#     # if you haven't localized the target bot, make a guess about the next
-#     # position, then we move the bot and compare your guess to the true
-#     # next position. When you are close enough, we stop checking.
-#     while not localized and ctr <= 10:
-#         ctr += 1
-#         measurement = target_bot.sense()
-#         position_guess, OTHER = estimate_next_pos_fcn(measurement, OTHER)
-#         target_bot.move_in_circle()
-#         true_position = (target_bot.x, target_bot.y)
-#         error = distance_between(position_guess, true_position)
-#         if error <= distance_tolerance:
-#             print "You got it right! It took you ", ctr, " steps to localize."
-#             localized = True
-#         if ctr == 10:
-#             print "Sorry, it took you too many steps to localize the target."
-#     return localized
-
+# This is here to give you a sense for how we will be running and grading
+# your code. Note that the OTHER variable allows you to store any
+# information that you want.
 def demo_grading(estimate_next_pos_fcn, target_bot, OTHER = None):
+    localized = False
+    distance_tolerance = 0.01 * target_bot.distance
+    ctr = 0
+    # if you haven't localized the target bot, make a guess about the next
+    # position, then we move the bot and compare your guess to the true
+    # next position. When you are close enough, we stop checking.
+    while not localized and ctr <= 10:
+        ctr += 1
+        measurement = target_bot.sense()
+        position_guess, OTHER = estimate_next_pos_fcn(measurement, OTHER)
+        target_bot.move_in_circle()
+        true_position = (target_bot.x, target_bot.y)
+        error = distance_between(position_guess, true_position)
+        if error <= distance_tolerance:
+            print("You got it right! It took you ", ctr, " steps to localize.")
+            localized = True
+        if ctr == 10:
+            print("Sorry, it took you too many steps to localize the target.")
+    return localized
+
+def demo_grading_(estimate_next_pos_fcn, target_bot, OTHER = None):
     localized = False
     distance_tolerance = 0.01 * target_bot.distance
     ctr = 0
@@ -145,10 +180,10 @@ def demo_grading(estimate_next_pos_fcn, target_bot, OTHER = None):
         true_position = (target_bot.x, target_bot.y)
         error = distance_between(position_guess, true_position)
         if error <= distance_tolerance:
-            print "You got it right! It took you ", ctr, " steps to localize."
+            print("You got it right! It took you ", ctr, " steps to localize.")
             localized = True
         if ctr == 10:
-            print "Sorry, it took you too many steps to localize the target."
+            print("Sorry, it took you too many steps to localize the target.")
         #More Visualization
         measured_broken_robot.setheading(target_bot.heading*180/pi)
         measured_broken_robot.goto(measurement[0]*size_multiplier, measurement[1]*size_multiplier-200)
@@ -177,4 +212,4 @@ def naive_next_pos(measurement, OTHER = None):
 test_target = robot(2.1, 4.3, 0.5, 2*pi / 34.0, 1.5)
 test_target.set_noise(0.0, 0.0, 0.0)
 
-demo_grading(naive_next_pos, test_target)
+demo_grading(estimate_next_pos, test_target)
