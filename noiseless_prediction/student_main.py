@@ -92,14 +92,14 @@ def estimate_next_pos(measurement, OTHER = None):
     def f(X):
         # todo проверить правильность работы
         x, y, v, b, db = unpack_X(X)
-        x, y, v, b, db = x + sin(b) * v * dt, y + cos(b) * v * dt, v, b + db, db
+        x, y, v, b, db = x + sin(b) * v * dt, y + cos(b) * v * dt, v, b + db, db        # todo учесть деление по модулю в вычислении b
         return np.matrix((x, y, v, b, db)).T
 
     def get_F(X):
         # todo проверить правлиьность работы
         x, y, v, b, db = unpack_X(X)
         F = I
-        F[3, 4] = 1
+        F[3, 4] = 1                     # todo учесть деление по модулю в вычислении b
         F[0, 2] = sin(b) * dt
         F[0, 3] = cos(b) * v * dt
         F[1, 2] = cos(b) * dt
@@ -112,7 +112,7 @@ def estimate_next_pos(measurement, OTHER = None):
         # todo проверить правильность начальных значений
         H = np.matrix([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]])
         P = I * 1000
-        X = np.matrix([x_measurement, y_measurement, 0, 0, 0]).T
+        X = np.matrix([x_measurement, y_measurement, 1, 1, 1]).T
         F = get_F(X)
         R = np.matrix([[0, 0], [0, 0]])     # todo возможно требует изменения
 
@@ -124,10 +124,6 @@ def estimate_next_pos(measurement, OTHER = None):
 
     # todo похоже не происходит изменения b и db
 
-    # Predict
-    X = f(X)
-    P = F * P * F.T
-
     # Update
     Z = np.matrix(measurement).T
     Y = Z - H * X
@@ -137,13 +133,20 @@ def estimate_next_pos(measurement, OTHER = None):
     X = X + K * Y
     P = (I - K * H) * P
 
+    # Predict
+    X = f(X)
+    P = F * P * F.T
+
     xy_estimate = X[0, 0], X[1, 0]
 
     OTHER = X, P, H, F, R
 
-    print(X)
-    print(P)
+    # print(X)
+    # print(P)
     # todo x застыл на начальном значении, b и db тоже замерли на 0
+    print('measurement: {}'.format(measurement))
+    print('estimate: {}'.format(xy_estimate))
+    # todo похоже, что xy_estimate == measurement, а должно быть, что xy_estimate == следующему measurement
 
     return xy_estimate, OTHER
 
@@ -157,7 +160,7 @@ def distance_between(point1, point2):
 # This is here to give you a sense for how we will be running and grading
 # your code. Note that the OTHER variable allows you to store any
 # information that you want.
-def demo_grading(estimate_next_pos_fcn, target_bot, OTHER = None):
+def demo_grading_(estimate_next_pos_fcn, target_bot, OTHER = None):
     localized = False
     distance_tolerance = 0.01 * target_bot.distance
     ctr = 0
@@ -178,7 +181,7 @@ def demo_grading(estimate_next_pos_fcn, target_bot, OTHER = None):
             print("Sorry, it took you too many steps to localize the target.")
     return localized
 
-def demo_grading_(estimate_next_pos_fcn, target_bot, OTHER = None):
+def demo_grading(estimate_next_pos_fcn, target_bot, OTHER = None):
     localized = False
     distance_tolerance = 0.01 * target_bot.distance
     ctr = 0
