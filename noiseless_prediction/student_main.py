@@ -78,35 +78,72 @@ def estimate_next_pos(measurement, OTHER = None):
 
     # todo использовать фильтр калмана
 
-    # xy_estimate = None
-
     dt = 1
+    I = np.matrix(np.identity(5))
 
-    def f(X):
-        x, y, v, b, db = X
-        x, y, v, b, db = x * sin(b) * v * dt, y + cos(b) * v * dt, v, b + db, db
+    def unpack_X(X):
+        x = X[0, 0]
+        y = X[1, 0]
+        v = X[2, 0]
+        b = X[3, 0]
+        db = X[4, 0]
         return x, y, v, b, db
 
+    def f(X):
+        # todo проверить правильность работы
+        x, y, v, b, db = unpack_X(X)
+        x, y, v, b, db = x + sin(b) * v * dt, y + cos(b) * v * dt, v, b + db, db
+        return np.matrix((x, y, v, b, db)).T
+
     def get_F(X):
-        pass        # todo матрица Якоби
+        # todo проверить правлиьность работы
+        x, y, v, b, db = unpack_X(X)
+        F = I
+        F[3, 4] = 1
+        F[0, 2] = sin(b) * dt
+        F[0, 3] = cos(b) * v * dt
+        F[1, 2] = cos(b) * dt
+        F[1, 3] = -sin(b) * v * dt
+        return F
 
     x_measurement, y_measurement = measurement
 
     if OTHER is None:
+        # todo проверить правильность начальных значений
         H = np.matrix([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]])
-        P = np.matrix(np.identity(5) * 1000)
+        P = I * 1000
         X = np.matrix([x_measurement, y_measurement, 0, 0, 0]).T
         F = get_F(X)
+        R = np.matrix([[0, 0], [0, 0]])     # todo возможно требует изменения
 
-        OTHER = X, P, H, F
+        xy_estimate = X[0, 0], X[1, 0]
+        OTHER = X, P, H, F, R
+        return xy_estimate, OTHER
     else:
-        X, P, H, F = OTHER
+        X, P, H, F, R = OTHER
 
-    # if not OTHER: # this is the first measurement
-    #     OTHER = measurement
-    OTHER.append(measurement)
+    # todo похоже не происходит изменения b и db
 
-    xy_estimate = X[:2]
+    # Predict
+    X = f(X)
+    P = F * P * F.T
+
+    # Update
+    Z = np.matrix(measurement).T
+    Y = Z - H * X
+    S = H * P * H.T + R
+    K = P * H.T * np.linalg.pinv(S)
+
+    X = X + K * Y
+    P = (I - K * H) * P
+
+    xy_estimate = X[0, 0], X[1, 0]
+
+    OTHER = X, P, H, F, R
+
+    print(X)
+    print(P)
+    # todo x застыл на начальном значении, b и db тоже замерли на 0
 
     return xy_estimate, OTHER
 
