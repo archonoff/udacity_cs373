@@ -63,6 +63,31 @@ import random
 import numpy as np
 
 
+def unpack_X(X: np.matrix):
+    x = X[0, 0]
+    y = X[1, 0]
+    v = X[2, 0]
+    b = X[3, 0]
+    db = X[4, 0]
+    return x, y, v, b, db
+
+
+def f(X: np.matrix, dt):
+    x, y, v, b, db = unpack_X(X)
+    x, y, b = x + sin(b) * v * dt, y + cos(b) * v * dt, (b + db) % (2 * pi)
+    return np.matrix((x, y, v, b, db)).T
+
+
+def get_F(X: np.matrix, dt):
+    x, y, v, b, db = unpack_X(X)
+    F = np.matrix(np.identity(5))
+    F[3, 4] = 1                     # todo учесть деление по модулю в вычислении b
+    F[0, 2] = sin(b) * dt
+    F[1, 2] = cos(b) * dt
+    F[0, 3] = cos(b) * v * dt
+    F[1, 3] = -sin(b) * v * dt
+    return F
+
 # This is the function you have to write. The argument 'measurement' is a
 # single (x, y) point. This function will have to be called multiple
 # times before you have enough information to accurately predict the
@@ -81,39 +106,14 @@ def estimate_next_pos(measurement, OTHER = None):
     dt = 1
     I = np.matrix(np.identity(5))
 
-    def unpack_X(X):
-        x = X[0, 0]
-        y = X[1, 0]
-        v = X[2, 0]
-        b = X[3, 0]
-        db = X[4, 0]
-        return x, y, v, b, db
-
-    def f(X):
-        # todo проверить правильность работы
-        x, y, v, b, db = unpack_X(X)
-        x, y, v, b, db = x + sin(b) * v * dt, y + cos(b) * v * dt, v, b + db, db        # todo учесть деление по модулю в вычислении b
-        return np.matrix((x, y, v, b, db)).T
-
-    def get_F(X):
-        # todo проверить правлиьность работы
-        x, y, v, b, db = unpack_X(X)
-        F = I
-        F[3, 4] = 1                     # todo учесть деление по модулю в вычислении b
-        F[0, 2] = sin(b) * dt
-        F[0, 3] = cos(b) * v * dt
-        F[1, 2] = cos(b) * dt
-        F[1, 3] = -sin(b) * v * dt
-        return F
-
     x_measurement, y_measurement = measurement
 
     if OTHER is None:
         # todo проверить правильность начальных значений
         H = np.matrix([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]])
         P = I * 1000
-        X = np.matrix([x_measurement, y_measurement, 1, 1, 1]).T
-        F = get_F(X)
+        X = np.matrix([x_measurement, y_measurement, .1, .1, .1]).T
+        F = get_F(X, dt)
         R = np.matrix([[0, 0], [0, 0]])     # todo возможно требует изменения
 
         xy_estimate = X[0, 0], X[1, 0]
@@ -134,15 +134,15 @@ def estimate_next_pos(measurement, OTHER = None):
     P = (I - K * H) * P
 
     # Predict
-    X = f(X)
+    X = f(X, dt)
     P = F * P * F.T
 
     xy_estimate = X[0, 0], X[1, 0]
 
     OTHER = X, P, H, F, R
 
-    # print(X)
-    # print(P)
+    print(X)
+    print(P)
     # todo x застыл на начальном значении, b и db тоже замерли на 0
     print('measurement: {}'.format(measurement))
     print('estimate: {}'.format(xy_estimate))
@@ -160,7 +160,7 @@ def distance_between(point1, point2):
 # This is here to give you a sense for how we will be running and grading
 # your code. Note that the OTHER variable allows you to store any
 # information that you want.
-def demo_grading_(estimate_next_pos_fcn, target_bot, OTHER = None):
+def demo_grading(estimate_next_pos_fcn, target_bot, OTHER = None):
     localized = False
     distance_tolerance = 0.01 * target_bot.distance
     ctr = 0
@@ -181,7 +181,7 @@ def demo_grading_(estimate_next_pos_fcn, target_bot, OTHER = None):
             print("Sorry, it took you too many steps to localize the target.")
     return localized
 
-def demo_grading(estimate_next_pos_fcn, target_bot, OTHER = None):
+def demo_grading_graph(estimate_next_pos_fcn, target_bot, OTHER = None):
     localized = False
     distance_tolerance = 0.01 * target_bot.distance
     ctr = 0
@@ -212,7 +212,7 @@ def demo_grading(estimate_next_pos_fcn, target_bot, OTHER = None):
     broken_robot.penup()
     measured_broken_robot.penup()
     #End of Visualization
-    while not localized and ctr <= 10:
+    while not localized and ctr <= 50:
         ctr += 1
         measurement = target_bot.sense()
         position_guess, OTHER = estimate_next_pos_fcn(measurement, OTHER)
@@ -252,4 +252,6 @@ def naive_next_pos(measurement, OTHER = None):
 test_target = robot(2.1, 4.3, 0.5, 2*pi / 34.0, 1.5)
 test_target.set_noise(0.0, 0.0, 0.0)
 
-demo_grading(estimate_next_pos, test_target)
+if __name__ == '__main__':
+    # demo_grading(estimate_next_pos, test_target)
+    demo_grading_graph(estimate_next_pos, test_target)
