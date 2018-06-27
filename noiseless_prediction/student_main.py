@@ -63,29 +63,14 @@ import random
 import numpy as np
 
 
-def unpack_X(X: np.matrix):
-    x = X[0, 0]
-    y = X[1, 0]
-    v = X[2, 0]
-    b = X[3, 0]
-    w = X[4, 0]
-    return x, y, v, b, w
-
-
-def f(X: np.matrix, dt):
-    x, y, v, b, w = unpack_X(X)
-    x, y, b = x + sin(b) * v * dt, y + cos(b) * v * dt, (b + w * dt) % (2 * pi)
-    return np.matrix((x, y, v, b, w)).T
-
-
-def get_F(X: np.matrix, dt):
-    x, y, v, b, w = unpack_X(X)
-    F = np.matrix(np.identity(5))
-    F[3, 4] = dt                     # todo учесть деление по модулю в вычислении b
-    F[0, 2] = sin(b) * dt
-    F[1, 2] = cos(b) * dt
-    F[0, 3] = cos(b) * v * dt
-    F[1, 3] = -sin(b) * v * dt
+def get_F(dt):
+    F = np.matrix(np.identity(6))
+    F[0, 2] = dt
+    F[1, 3] = dt
+    F[2, 4] = dt
+    F[3, 5] = dt
+    # F[0, 4] = dt**2 / 2
+    # F[1, 5] = dt**2 / 2
     return F
 
 
@@ -108,22 +93,24 @@ def estimate_next_pos(measurement, OTHER = None):
     # todo использовать фильтр калмана
 
     dt = 1
-    I = np.matrix(np.identity(5))
+    I = np.matrix(np.identity(6))
 
     x_measurement, y_measurement = measurement
 
     if OTHER is None:
         # todo проверить правильность начальных значений
-        H = np.matrix([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]])
-        P = I * 1000            # todo проверить корректность
-        X = np.matrix([x_measurement, y_measurement, .1, .1, .1]).T
+        H = np.matrix([[1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0]])
+        P = I * 1000                # todo проверить корректность
+        X = np.matrix([x_measurement, y_measurement, 0, 0, 0, 0]).T
         R = np.matrix([[0, 0], [0, 0]])     # todo возможно требует изменения
+        F = get_F(dt)
+        Q = F * F.T
 
         xy_estimate = measurement
-        OTHER = X, P, H, R
+        OTHER = X, P, H, R, F, Q
         return xy_estimate, OTHER
     else:
-        X, P, H, R = OTHER
+        X, P, H, R, F, Q = OTHER
 
     print('measurement: {}'.format(measurement))
     print('estimate:    {}'.format((X[0, 0], X[1, 0])))
@@ -133,27 +120,21 @@ def estimate_next_pos(measurement, OTHER = None):
     Y = Z - H * X
     print('error:\n{}\n'.format(Y))
     S = H * P * H.T + R
-    K = P * H.T * np.linalg.pinv(S)
+    K = P * H.T * S.I           # np.linalg.pinv(S)
 
-    X = X + K * Y
+    X = X + K * Y               # estimated state for current step
     P = (I - K * H) * P
 
-    F = get_F(X, dt)
-
     # Predict
-    X = f(X, dt)
-    P = F * P * F.T
+    X = F * X
+    P = F * P * F.T + Q
 
     xy_estimate = X[0, 0], X[1, 0]
 
-    OTHER = X, P, H, R
+    OTHER = X, P, H, R, F, Q
 
     print('X:\n{}\n'.format(X))
     print('P:\n{}\n\n'.format(P))
-
-    # todo похоже не происходит изменения b и db
-    # todo x застыл на начальном значении, b и db тоже замерли на 0
-    # todo похоже, что xy_estimate == measurement, а должно быть, что xy_estimate == следующему measurement
 
     return xy_estimate, OTHER
 
@@ -164,7 +145,7 @@ def distance_between(point1, point2):
     x2, y2 = point2
     return sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-steps = 10
+steps = 30
 
 # This is here to give you a sense for how we will be running and grading
 # your code. Note that the OTHER variable allows you to store any
@@ -262,5 +243,5 @@ test_target = robot(2.1, 4.3, 0.5, 2*pi / 34.0, 1.5)
 test_target.set_noise(0.0, 0.0, 0.0)
 
 if __name__ == '__main__':
-    demo_grading(estimate_next_pos, test_target)
-    # demo_grading_graph(estimate_next_pos, test_target)
+    # demo_grading(estimate_next_pos, test_target)
+    demo_grading_graph(estimate_next_pos, test_target)
