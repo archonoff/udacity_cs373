@@ -69,12 +69,12 @@ def get_F(dt):
     F[1, 3] = dt
     F[2, 4] = dt
     F[3, 5] = dt
-    # F[0, 4] = dt**2 / 2
-    # F[1, 5] = dt**2 / 2
+    F[0, 4] = dt**2
+    F[1, 5] = dt**2
     return F
 
 
-np.set_printoptions(suppress=True)
+np.set_printoptions(precision=3, suppress=True)
 
 
 # This is the function you have to write. The argument 'measurement' is a
@@ -104,7 +104,8 @@ def estimate_next_pos(measurement, OTHER = None):
         X = np.matrix([x_measurement, y_measurement, 0, 0, 0, 0]).T
         R = np.matrix([[0, 0], [0, 0]])     # todo возможно требует изменения
         F = get_F(dt)
-        Q = F * F.T
+        Q = F * F.T     # todo проверить корректность
+        # Q = np.matrix(np.identity(6)) * 2
 
         xy_estimate = measurement
         OTHER = X, P, H, R, F, Q
