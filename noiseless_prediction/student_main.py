@@ -68,25 +68,29 @@ def unpack_X(X: np.matrix):
     y = X[1, 0]
     v = X[2, 0]
     b = X[3, 0]
-    db = X[4, 0]
-    return x, y, v, b, db
+    w = X[4, 0]
+    return x, y, v, b, w
 
 
 def f(X: np.matrix, dt):
-    x, y, v, b, db = unpack_X(X)
-    x, y, b = x + sin(b) * v * dt, y + cos(b) * v * dt, (b + db) % (2 * pi)
-    return np.matrix((x, y, v, b, db)).T
+    x, y, v, b, w = unpack_X(X)
+    x, y, b = x + sin(b) * v * dt, y + cos(b) * v * dt, (b + w * dt) % (2 * pi)
+    return np.matrix((x, y, v, b, w)).T
 
 
 def get_F(X: np.matrix, dt):
-    x, y, v, b, db = unpack_X(X)
+    x, y, v, b, w = unpack_X(X)
     F = np.matrix(np.identity(5))
-    F[3, 4] = 1                     # todo учесть деление по модулю в вычислении b
+    F[3, 4] = dt                     # todo учесть деление по модулю в вычислении b
     F[0, 2] = sin(b) * dt
     F[1, 2] = cos(b) * dt
     F[0, 3] = cos(b) * v * dt
     F[1, 3] = -sin(b) * v * dt
     return F
+
+
+np.set_printoptions(suppress=True)
+
 
 # This is the function you have to write. The argument 'measurement' is a
 # single (x, y) point. This function will have to be called multiple
@@ -111,27 +115,30 @@ def estimate_next_pos(measurement, OTHER = None):
     if OTHER is None:
         # todo проверить правильность начальных значений
         H = np.matrix([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]])
-        P = I * 1000
+        P = I * 1000            # todo проверить корректность
         X = np.matrix([x_measurement, y_measurement, .1, .1, .1]).T
-        F = get_F(X, dt)
         R = np.matrix([[0, 0], [0, 0]])     # todo возможно требует изменения
 
-        xy_estimate = X[0, 0], X[1, 0]
-        OTHER = X, P, H, F, R
+        xy_estimate = measurement
+        OTHER = X, P, H, R
         return xy_estimate, OTHER
     else:
-        X, P, H, F, R = OTHER
+        X, P, H, R = OTHER
 
-    # todo похоже не происходит изменения b и db
+    print('measurement: {}'.format(measurement))
+    print('estimate:    {}'.format((X[0, 0], X[1, 0])))
 
     # Update
     Z = np.matrix(measurement).T
     Y = Z - H * X
+    print('error:\n{}\n'.format(Y))
     S = H * P * H.T + R
     K = P * H.T * np.linalg.pinv(S)
 
     X = X + K * Y
     P = (I - K * H) * P
+
+    F = get_F(X, dt)
 
     # Predict
     X = f(X, dt)
@@ -139,13 +146,13 @@ def estimate_next_pos(measurement, OTHER = None):
 
     xy_estimate = X[0, 0], X[1, 0]
 
-    OTHER = X, P, H, F, R
+    OTHER = X, P, H, R
 
-    print(X)
-    print(P)
+    print('X:\n{}\n'.format(X))
+    print('P:\n{}\n\n'.format(P))
+
+    # todo похоже не происходит изменения b и db
     # todo x застыл на начальном значении, b и db тоже замерли на 0
-    print('measurement: {}'.format(measurement))
-    print('estimate: {}'.format(xy_estimate))
     # todo похоже, что xy_estimate == measurement, а должно быть, что xy_estimate == следующему measurement
 
     return xy_estimate, OTHER
@@ -157,6 +164,8 @@ def distance_between(point1, point2):
     x2, y2 = point2
     return sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
+steps = 10
+
 # This is here to give you a sense for how we will be running and grading
 # your code. Note that the OTHER variable allows you to store any
 # information that you want.
@@ -167,7 +176,7 @@ def demo_grading(estimate_next_pos_fcn, target_bot, OTHER = None):
     # if you haven't localized the target bot, make a guess about the next
     # position, then we move the bot and compare your guess to the true
     # next position. When you are close enough, we stop checking.
-    while not localized and ctr <= 10:
+    while not localized and ctr <= steps:
         ctr += 1
         measurement = target_bot.sense()
         position_guess, OTHER = estimate_next_pos_fcn(measurement, OTHER)
@@ -212,7 +221,7 @@ def demo_grading_graph(estimate_next_pos_fcn, target_bot, OTHER = None):
     broken_robot.penup()
     measured_broken_robot.penup()
     #End of Visualization
-    while not localized and ctr <= 50:
+    while not localized and ctr <= steps:
         ctr += 1
         measurement = target_bot.sense()
         position_guess, OTHER = estimate_next_pos_fcn(measurement, OTHER)
@@ -253,5 +262,5 @@ test_target = robot(2.1, 4.3, 0.5, 2*pi / 34.0, 1.5)
 test_target.set_noise(0.0, 0.0, 0.0)
 
 if __name__ == '__main__':
-    # demo_grading(estimate_next_pos, test_target)
-    demo_grading_graph(estimate_next_pos, test_target)
+    demo_grading(estimate_next_pos, test_target)
+    # demo_grading_graph(estimate_next_pos, test_target)
