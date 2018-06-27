@@ -63,42 +63,7 @@ import random
 import numpy as np
 
 
-def unpack_X(X: np.matrix):
-    x = X[0, 0]
-    y = X[1, 0]
-    v = X[2, 0]
-    b = X[3, 0]
-    w = X[4, 0]
-    return x, y, v, b, w
-
-
-def f(X: np.matrix, dt):
-    x, y, v, b, w = unpack_X(X)
-    # todo вероятно есть проблемы с тем, что используются переменные не из тех итераций
-    x, y, b = x + sin(b) * v * dt, y + cos(b) * v * dt, b + w * dt
-    # x, y, b, w = x + sin(b) * v * dt, y + cos(b) * v * dt, (b + w * dt) % (2 * pi), w % (2 * pi)
-    return np.matrix((x, y, v, b, w)).T
-
-
-def get_F(X: np.matrix, dt):
-    x, y, v, b, w = unpack_X(X)
-    F = np.matrix(np.identity(5))
-
-    F[0, 2] = sin(b + w * dt) * dt
-    F[0, 3] = cos(b + w * dt) * v * dt
-    F[0, 4] = cos(b + w * dt) * v * dt**2
-
-    F[1, 2] = cos(b + w * dt) * dt
-    F[1, 3] = -sin(b + w * dt) * v * dt
-    F[1, 4] = -sin(b + w * dt) * v * dt**2
-
-    F[3, 4] = dt                     # todo учесть деление по модулю в вычислении b
-
-    return F
-
-
-np.set_printoptions(suppress=True)
-
+np.set_printoptions(precision=3, suppress=True)
 
 # This is the function you have to write. The argument 'measurement' is a
 # single (x, y) point. This function will have to be called multiple
@@ -114,6 +79,37 @@ def estimate_next_pos(measurement, OTHER = None):
     # in this order for grading purposes.
 
     # Kalman filter
+
+    def unpack_X(X: np.matrix):
+        x = X[0, 0]
+        y = X[1, 0]
+        v = X[2, 0]
+        b = X[3, 0]
+        w = X[4, 0]
+        return x, y, v, b, w
+
+    def f(X: np.matrix, dt):
+        x, y, v, b, w = unpack_X(X)
+        # todo вероятно есть проблемы с тем, что используются переменные не из тех итераций
+        x, y, b = x + sin(b) * v * dt, y + cos(b) * v * dt, b + w * dt
+        # x, y, b, w = x + sin(b) * v * dt, y + cos(b) * v * dt, (b + w * dt) % (2 * pi), w % (2 * pi)
+        return np.matrix((x, y, v, b, w)).T
+
+    def get_F(X: np.matrix, dt):
+        x, y, v, b, w = unpack_X(X)
+        F = np.matrix(np.identity(5))
+
+        F[0, 2] = sin(b + w * dt) * dt
+        F[0, 3] = cos(b + w * dt) * v * dt
+        F[0, 4] = cos(b + w * dt) * v * dt**2
+
+        F[1, 2] = cos(b + w * dt) * dt
+        F[1, 3] = -sin(b + w * dt) * v * dt
+        F[1, 4] = -sin(b + w * dt) * v * dt**2
+
+        F[3, 4] = dt                     # todo учесть деление по модулю в вычислении b
+
+        return F
 
     dt = 1
     I = np.matrix(np.identity(5))
@@ -274,5 +270,5 @@ test_target = robot(2.1, 4.3, 0.5, 2*pi / 34.0, 1.5)
 test_target.set_noise(0.0, 0.0, 0.0)
 
 if __name__ == '__main__':
-    # demo_grading(estimate_next_pos, test_target)
-    demo_grading_graph(estimate_next_pos, test_target)
+    demo_grading(estimate_next_pos, test_target)
+    # demo_grading_graph(estimate_next_pos, test_target)
