@@ -72,96 +72,36 @@ np.set_printoptions(precision=3, suppress=True)
 # passed back to your function the next time it is called. You can use
 # this to keep track of important information over time.
 def estimate_next_pos(measurement, OTHER = None):
-    """Estimate the next (x, y) position of the wandering Traxbot
-    based on noisy (x, y) measurements."""
-
-    # You must return xy_estimate (x, y), and OTHER (even if it is None)
-    # in this order for grading purposes.
-
-    # Kalman filter
-
-    def unpack_X(X: np.matrix):
-        x = X[0, 0]
-        y = X[1, 0]
-        v = X[2, 0]
-        b = X[3, 0]
-        w = X[4, 0]
-        return x, y, v, b, w
-
-    def f(X: np.matrix, dt):
-        x, y, v, b, w = unpack_X(X)
-        # todo вероятно есть проблемы с тем, что используются переменные не из тех итераций
-        x, y, b = x + sin(b) * v * dt, y + cos(b) * v * dt, b + w * dt
-        # x, y, b, w = x + sin(b) * v * dt, y + cos(b) * v * dt, (b + w * dt) % (2 * pi), w % (2 * pi)
-        return np.matrix((x, y, v, b, w)).T
-
-    def get_F(X: np.matrix, dt):
-        x, y, v, b, w = unpack_X(X)
-        F = np.matrix(np.identity(5))
-
-        F[0, 2] = sin(b + w * dt) * dt
-        F[0, 3] = cos(b + w * dt) * v * dt
-        F[0, 4] = cos(b + w * dt) * v * dt**2
-
-        F[1, 2] = cos(b + w * dt) * dt
-        F[1, 3] = -sin(b + w * dt) * v * dt
-        F[1, 4] = -sin(b + w * dt) * v * dt**2
-
-        F[3, 4] = dt                     # todo учесть деление по модулю в вычислении b
-
-        return F
-
-    dt = 1
-    I = np.matrix(np.identity(5))
-
-    x_measurement, y_measurement = measurement
-
     if OTHER is None:
-        # todo проверить правильность начальных значений
-        H = np.matrix([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]])
-        P = I * 1000            # todo проверить корректность
-        X = np.matrix([x_measurement, y_measurement, 0.1, 0.1, 0.1]).T
-        R = np.matrix([[0, 0], [0, 0]])     # todo возможно требует изменения
-        R = np.matrix(np.identity(2)) * 100
+        xy_estimate = (0, 0)
+        OTHER = measurement
+    elif len(OTHER) == 2:
+        prev_x, prev_y = OTHER
+        current_x, current_y = measurement
 
-        xy_estimate = measurement
-        OTHER = X, P, H, R
-        return xy_estimate, OTHER
+        dx = current_x - prev_x
+        dy = current_y - prev_y
+        current_beta = atan2(dy, dx)
+
+        xy_estimate = (0, 0)
+        OTHER = *measurement, current_beta
     else:
-        X, P, H, R = OTHER
+        prev_x, prev_y, prev_beta = OTHER
+        current_x, current_y = measurement
 
-    print('measurement: {}'.format(measurement))
-    print('estimate:    {}'.format((X[0, 0], X[1, 0])))
+        dx = current_x - prev_x
+        dy = current_y - prev_y
+        current_dist = sqrt(dx**2 + dy**2)
+        current_beta = atan2(dy, dx)
 
-    # Update
-    Z = np.matrix(measurement).T
-    Y = Z - H * X   # X_k|k-1
-    print('error:\n{}\n'.format(Y))
-    S = H * P * H.T + R
-    K = P * H.T * np.linalg.pinv(S)
+        dbeta = current_beta - prev_beta
+        next_beta = current_beta + dbeta
 
-    # X_k|k <- X_k|k-1
-    X = X + K * Y
-    # P_k|k <- P_k|k-1
-    P = (I - K * H) * P
+        next_x = current_x + cos(next_beta) * current_dist
+        next_y = current_y + sin(next_beta) * current_dist
 
-    F = get_F(X, dt)    # X_k|k
-    Q = F * F.T * .1
-    # Q = np.matrix(np.zeros((5, 5)))
-
-    # Predict
-    # X_k+1|k <- X_k|k
-    # X = F * X
-    X = f(X, dt)
-    # P_k+1|k <- P_k|k
-    P = F * P * F.T + Q
-
-    xy_estimate = X[0, 0], X[1, 0]
-
-    OTHER = X, P, H, R
-
-    print('X:\n{}\n'.format(X))
-    print('P:\n{}\n\n'.format(P))
+        xy_estimate = next_x, next_y
+        OTHER = *measurement, current_beta
 
     return xy_estimate, OTHER
 
@@ -172,7 +112,7 @@ def distance_between(point1, point2):
     x2, y2 = point2
     return sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-steps = 100
+steps = 10
 
 # This is here to give you a sense for how we will be running and grading
 # your code. Note that the OTHER variable allows you to store any
