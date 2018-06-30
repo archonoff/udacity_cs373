@@ -36,6 +36,77 @@
 from the_chase_begins.robot import *
 from math import *
 import random
+import numpy as np
+
+
+def target_kalman_filter(measurement, OTHER):
+    def unpack_X(X: np.matrix):
+        x = X[0, 0]
+        y = X[1, 0]
+        v = X[2, 0]
+        b = X[3, 0]
+        w = X[4, 0]
+        return x, y, v, b, w
+
+    def f(X: np.matrix, dt):
+        x, y, v, b, w = unpack_X(X)
+        x, y, b = x + sin(b) * v * dt, y + cos(b) * v * dt, b + w * dt
+        return np.matrix((x, y, v, b, w)).T
+
+    def get_F(X: np.matrix, dt):
+        x, y, v, b, w = unpack_X(X)
+        F = np.matrix(np.identity(5))
+
+        F[0, 2] = sin(b + w * dt) * dt
+        F[0, 3] = cos(b + w * dt) * v * dt
+        F[0, 4] = cos(b + w * dt) * v * dt**2
+
+        F[1, 2] = cos(b + w * dt) * dt
+        F[1, 3] = -sin(b + w * dt) * v * dt
+        F[1, 4] = -sin(b + w * dt) * v * dt**2
+
+        F[3, 4] = dt
+
+        return F
+
+    dt = 1
+    I = np.matrix(np.identity(5))
+
+    x_measurement, y_measurement = measurement
+
+    if OTHER is None:
+        H = np.matrix([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]])
+        P = I * 1000
+        X = np.matrix([x_measurement, y_measurement, 0.1, 0.1, 0.1]).T
+        R = np.matrix(np.identity(2)) * 100
+
+        xy_estimate = measurement
+        OTHER = {'kalman': (X, P, H, R)}
+        return xy_estimate, OTHER
+    else:
+        X, P, H, R = OTHER['kalman']
+
+    # Update
+    Z = np.matrix(measurement).T
+    Y = Z - H * X
+    S = H * P * H.T + R
+    K = P * H.T * np.linalg.pinv(S)
+
+    X = X + K * Y
+    P = (I - K * H) * P
+
+    F = get_F(X, dt)
+    Q = F * F.T * .1
+
+    # Predict
+    X = f(X, dt)
+    P = F * P * F.T + Q
+
+    xy_estimate = X[0, 0], X[1, 0]
+
+    OTHER['kalman'] = X, P, H, R
+
+    return xy_estimate, OTHER
 
 
 def next_move(hunter_position, hunter_heading, target_measurement, max_distance, OTHER=None):
@@ -44,8 +115,20 @@ def next_move(hunter_position, hunter_heading, target_measurement, max_distance,
     # The OTHER variable is a place for you to store any historical information about
     # the progress of the hunt (or maybe some localization information). Your return format
     # must be as follows in order to be graded properly.
-    turning = None
-    distance = None
+
+    target_position, OTHER = target_kalman_filter(target_measurement, OTHER)
+
+    distance_till_target = distance_between(target_position, hunter_position)
+    if distance_till_target > max_distance:
+        distance = max_distance
+    else:
+        distance = distance_till_target
+
+    directieon_to_target = get_heading(hunter_position, target_position)
+    turning = directieon_to_target - hunter_heading
+
+    OTHER['target_position'] = target_position
+
     return turning, distance, OTHER
 
 
@@ -138,6 +221,13 @@ def demo_grading_graph(hunter_bot, target_bot, next_move_fcn, OTHER = None):
     measuredbroken_robot.shapesize(0.1, 0.1, 0.1)
     broken_robot.pendown()
     chaser_robot.pendown()
+
+    prediction = turtle.Turtle()
+    prediction.shape('arrow')
+    prediction.color('pink')
+    prediction.resizemode('user')
+    prediction.shapesize(0.5, 0.5, 0.5)
+    prediction.penup()
     #End of Visualization
     # We will use your next_move_fcn until we catch the target or time expires.
     while not caught and ctr < 1000:
@@ -154,6 +244,7 @@ def demo_grading_graph(hunter_bot, target_bot, next_move_fcn, OTHER = None):
 
         # This is where YOUR function will be called.
         turning, distance, OTHER = next_move_fcn(hunter_position, hunter_bot.heading, target_measurement, max_distance, OTHER)
+        position_guess = OTHER['target_position']
 
         # Don't try to move faster than allowed!
         if distance > max_distance:
@@ -172,6 +263,10 @@ def demo_grading_graph(hunter_bot, target_bot, next_move_fcn, OTHER = None):
         broken_robot.goto(target_bot.x*size_multiplier, target_bot.y*size_multiplier-100)
         chaser_robot.setheading(hunter_bot.heading*180/pi)
         chaser_robot.goto(hunter_bot.x*size_multiplier, hunter_bot.y*size_multiplier-100)
+
+        prediction.setheading(target_bot.heading*180/pi)
+        prediction.goto(position_guess[0]*size_multiplier, position_guess[1]*size_multiplier-100)
+        prediction.stamp()
         #End of visualization
         ctr += 1
         if ctr >= 1000:
@@ -191,7 +286,7 @@ def get_heading(hunter_position, target_position):
     hunter_x, hunter_y = hunter_position
     target_x, target_y = target_position
     heading = atan2(target_y - hunter_y, target_x - hunter_x)
-    heading = angle_trunc(heading)
+    # heading = angle_trunc(heading)
     return heading
 
 
@@ -217,10 +312,13 @@ def naive_next_move(hunter_position, hunter_heading, target_measurement, max_dis
     distance = max_distance  # full speed ahead!
     return turning, distance, OTHER
 
-# target = robot(0.0, 10.0, 0.0, 2*pi / 30, 1.5)
-# measurement_noise = .05*target.distance
-# target.set_noise(0.0, 0.0, measurement_noise)
 
-# hunter = robot(-10.0, -10.0, 0.0)
+if __name__ == '__main__':
+    target = robot(0.0, 10.0, 0.0, 2*pi / 30, 1.5)
+    measurement_noise = .05*target.distance
+    target.set_noise(0.0, 0.0, measurement_noise)
 
-# print demo_grading(hunter, target, naive_next_move)
+    hunter = robot(-10.0, -10.0, 0.0)
+
+    # print(demo_grading(hunter, target, next_move))
+    print(demo_grading_graph(hunter, target, next_move))
