@@ -84,7 +84,7 @@ def estimate_next_pos(measurement, OTHER = None):
         current_beta = atan2(dy, dx)
 
         xy_estimate = (0, 0)
-        OTHER = *measurement, current_beta
+        OTHER = current_x, current_y, current_beta
     else:
         prev_x, prev_y, prev_beta = OTHER
         current_x, current_y = measurement
@@ -101,7 +101,7 @@ def estimate_next_pos(measurement, OTHER = None):
         next_y = current_y + sin(next_beta) * current_dist
 
         xy_estimate = next_x, next_y
-        OTHER = *measurement, current_beta
+        OTHER = current_x, current_y, current_beta
 
     return xy_estimate, OTHER
 
