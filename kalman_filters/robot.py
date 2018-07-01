@@ -7,8 +7,8 @@ def angle_trunc(a):
         a += pi * 2
     return ((a + pi) % (pi * 2)) - pi
 
-class robot:
 
+class Robot:
     def __init__(self, x = 0.0, y = 0.0, heading = 0.0, turning = 2*pi/10, distance = 1.0):
         """This function is called when you create a new robot. It sets some of
         the attributes of the robot, either to their default values or to the values
