@@ -52,14 +52,10 @@ if __name__ == '__main__':
     line_styles = ["-", "--", "--.", "-.", "-..", ":"]
     line_cycler = cycle(line_styles)
 
-    # R_multipliers = [1, 10, 100, 1000, 10000]
-    # Q_multipliers = [1, .1, .01, .001, .0001]
-    # P_multipliers = [.1, 1, 10, 100, 1000, 10000]
-    R_multipliers = []
+    R_multipliers = [1, 10, 100, 1000, 10000]
     Q_multipliers = [1, .1, .01, .001, .0001]
-    P_multipliers = [10]
-    exclude = ()
-    (
+    P_multipliers = [.1, 1, 10, 100, 1000, 10000]
+    exclude = (
         (1, 1),
         (1, 0.1),
         (1, 0.001),
@@ -77,20 +73,20 @@ if __name__ == '__main__':
         (10000, 0.0001),
     )
     # хорошие: (10, 0.1), (100, 0.01), (100, 0.001), (10000, 0.1)
-    # R_multipliers = [10]
-    # Q_multipliers = [.1]
+    R_multipliers = [10]
+    Q_multipliers = [.1]
+    P_multipliers = [.1, 1, 10]
 
-    figure, axes = plt.subplots(nrows=2, ncols=1)   #, sharex=True, gridspec_kw={'height_ratios': (5, 1)})
+    figure, axes = plt.subplots(nrows=2, ncols=1)
     figure.set_figheight(20)
     figure.set_figwidth(16)
     ax1, ax2 = axes
 
     # todo показывать типом линии R, а цветом линии Q
-    # choices = [(R, Q, P) for R in R_multipliers for Q in Q_multipliers for P in P_multipliers if (R, Q) not in exclude]
-    choices = ((1, 1, 10), (1, 0.1, 10), (10, 1, 10))
+    choices = [(R, Q, P) for R in R_multipliers for Q in Q_multipliers for P in P_multipliers if (R, Q) not in exclude]
     for R_multiplier, Q_multiplier, P_multiplier in choices:
-        # kalman_filter = ExtendedKalmanFilter(R_multiplier=R_multiplier, Q_multiplier=Q_multiplier, P_multiplier=100)
-        kalman_filter = KalmanFilter(R_multiplier=R_multiplier, Q_multiplier=Q_multiplier, P_multiplier=100)
+        kalman_filter = ExtendedKalmanFilter(R_multiplier=R_multiplier, Q_multiplier=Q_multiplier, P_multiplier=100)
+        # kalman_filter = KalmanFilter(R_multiplier=R_multiplier, Q_multiplier=Q_multiplier, P_multiplier=100)
         measured_positions, filtered_positions, errors = run_filter(kalman_filter, test_target)
 
         ax1.scatter(*zip(*measured_positions), s=2, label='Измеренное положение')
