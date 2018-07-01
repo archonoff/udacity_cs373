@@ -55,12 +55,12 @@ def next_move(hunter_position, hunter_heading, target_measurement, max_distance,
     else:
         # It's impossible to chase target from current location so just move to next target position
         meeting_position = next_target_position
-        distance_from_target = distance_between(meeting_position, hunter_position)
+        distance_from_hunter = distance_between(meeting_position, hunter_position)
 
-    if distance_from_target > max_distance:
+    if distance_from_hunter > max_distance:
         distance = max_distance
     else:
-        distance = distance_from_target
+        distance = distance_from_hunter
 
     direction_to_meeting_position = get_heading(hunter_position, meeting_position)
     turning = direction_to_meeting_position - hunter_heading
