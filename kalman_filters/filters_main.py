@@ -1,3 +1,5 @@
+from itertools import product
+
 from math import pi
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
@@ -37,26 +39,7 @@ def run_filter(kalman_filter: KalmanFilterBase, target_bot: Robot):
         measured_positions.append(measurement)
         filtered_positions.append(position_guess)
 
-    figure, axes = plt.subplots(nrows=2, ncols=1)   #, sharex=True, gridspec_kw={'height_ratios': (5, 1)})
-    figure.set_figheight(10)
-    figure.set_figwidth(8)
-
-    ax1, ax2 = axes
-
-    ax1.scatter(*zip(*measured_positions), s=2, label='Измеренное положение')
-    ax1.plot(*zip(*filtered_positions), linewidth=.2, label='Отфильтрованное положение')
-    ax1.legend()
-
-    ax2.plot(errors)
-    ax2.set_yscale('log')
-    ax2.yaxis.set_major_formatter(FormatStrFormatter('%g'))
-    ax2.yaxis.set_minor_formatter(FormatStrFormatter('%g'))
-    ax2.tick_params(which='minor', labelsize=8)
-    ax2.grid(which='both')
-
-    plt.show()
-
-    return localized
+    return measured_positions, filtered_positions, errors
 
 
 if __name__ == '__main__':
@@ -66,9 +49,29 @@ if __name__ == '__main__':
     measurement_noise = .05 * test_target.distance
     test_target.set_noise(0.0, 0.0, measurement_noise)
 
-    mode = 'ekf'
+    R_multipliers = [10, 100, 1000, 10000]
+    Q_multipliers = [.1, .01, .001, .0001]
 
-    if mode == 'ekf':
-        kalman_filter = ExtendedKalmanFilter(R_multiplier=100, Q_multiplier=.0001, P_multiplier=100000)
+    figure, axes = plt.subplots(nrows=2, ncols=1)   #, sharex=True, gridspec_kw={'height_ratios': (5, 1)})
+    figure.set_figheight(10)
+    figure.set_figwidth(8)
+    ax1, ax2 = axes
 
-    run_filter(kalman_filter, test_target)
+    for R_multiplier, Q_multiplier in product(R_multipliers, Q_multipliers):
+        kalman_filter = ExtendedKalmanFilter(R_multiplier=R_multiplier, Q_multiplier=Q_multiplier, P_multiplier=100)
+        measured_positions, filtered_positions, errors = run_filter(kalman_filter, test_target)
+
+        # ax1.scatter(*zip(*measured_positions), s=2, label='Измеренное положение')
+        # ax1.plot(*zip(*filtered_positions), linewidth=.2, label='Отфильтрованное положение')
+        # ax1.legend()
+
+        ax2.plot(errors, label='R multiplier: {}, Q_multiplier: {}'.format(R_multiplier, Q_multiplier))
+
+    ax2.set_yscale('log')
+    ax2.yaxis.set_major_formatter(FormatStrFormatter('%g'))
+    ax2.yaxis.set_minor_formatter(FormatStrFormatter('%g'))
+    ax2.tick_params(which='minor', labelsize=8)
+    ax2.grid(which='both')
+    ax2.legend()
+
+    plt.show()
