@@ -46,7 +46,7 @@ class KalmanFilter:
 
     def step(self, measurement, dt=1):
         F = self.get_F(self.X, dt)
-        Q = F * F.T * .0000001
+        Q = F * F.T * .01
 
         # Predict
         self.X = self.f(self.X, dt)
