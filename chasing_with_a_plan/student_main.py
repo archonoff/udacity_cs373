@@ -20,6 +20,7 @@ from the_chase_begins.student_main import target_kalman_filter
 from chasing_with_a_plan.kalman_filter import KalmanFilter
 from math import *
 from time import sleep
+import numpy as np
 
 
 def next_move(hunter_position, hunter_heading, target_measurement, max_distance, OTHER=None):
@@ -118,16 +119,14 @@ def demo_grading(hunter_bot, target_bot, next_move_fcn, OTHER=None):
         ctr += 1
         if ctr >= 1000:
             print("It took too many steps to catch the target.")
-    return caught
+    return ctr-1
 
 
 def demo_grading_graph(hunter_bot, target_bot, next_move_fcn, OTHER = None):
     """Returns True if your next_move_fcn successfully guides the hunter_bot
     to the target_bot. This function is here to help you understand how we
     will grade your submission."""
-
-    # max_distance = 0.98 * target_bot.distance # 0.98 is an example. It will change.
-    max_distance = 1.94 * target_bot.distance # 1.94 is an example. It will change.
+    max_distance = 0.98 * target_bot.distance # 0.98 is an example. It will change.
     separation_tolerance = 0.02 * target_bot.distance # hunter must be within 0.02 step size to catch target
     caught = False
     ctr = 0
@@ -275,5 +274,9 @@ if __name__ == '__main__':
 
     hunter = robot(-10.0, -10.0, 0.0)
 
-    print(demo_grading(hunter, target, next_move))
+    ctrs = []
+    for _ in range(20):
+        ctr = demo_grading(hunter, target, next_move)
+        ctrs.append(ctr)
+    print(np.mean(ctrs))
     # print(demo_grading_graph(hunter, target, next_move))
