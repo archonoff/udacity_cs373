@@ -17,6 +17,7 @@
 
 from chasing_with_a_plan.robot import *
 from the_chase_begins.student_main import target_kalman_filter
+from chasing_with_a_plan.kalman_filter import KalmanFilter
 from math import *
 import random
 
@@ -28,7 +29,19 @@ def next_move(hunter_position, hunter_heading, target_measurement, max_distance,
     # the progress of the hunt (or maybe some localization information). Your return format
     # must be as follows in order to be graded properly.
 
-    target_position, OTHER = target_kalman_filter(target_measurement, OTHER)
+    # todo вычислять время "дохождения" робота и охотника до определенной точки
+    # todo начиная от следующей точки пути робота пробовать все, пока не найдется точка, до которой охотник дойдет быстрее
+    # todo идти к этой точке
+    # todo повторить процедуру
+
+    if OTHER is None:
+        kalman_filter = KalmanFilter(measurement=target_measurement)
+        OTHER = {'kalman_filter': kalman_filter}
+    else:
+        kalman_filter = OTHER['kalman_filter']
+
+    kalman_filter.step(target_measurement)
+    target_position = kalman_filter.get_prediction()
 
     distance_till_target = distance_between(target_position, hunter_position)
     if distance_till_target > max_distance:
@@ -36,8 +49,8 @@ def next_move(hunter_position, hunter_heading, target_measurement, max_distance,
     else:
         distance = distance_till_target
 
-    directieon_to_target = get_heading(hunter_position, target_position)
-    turning = directieon_to_target - hunter_heading
+    direction_to_target = get_heading(hunter_position, target_position)
+    turning = direction_to_target - hunter_heading
 
     OTHER['target_position'] = target_position
 
