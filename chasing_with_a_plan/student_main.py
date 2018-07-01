@@ -19,7 +19,7 @@ from chasing_with_a_plan.robot import *
 from the_chase_begins.student_main import target_kalman_filter
 from chasing_with_a_plan.kalman_filter import KalmanFilter
 from math import *
-import random
+from time import sleep
 
 
 def next_move(hunter_position, hunter_heading, target_measurement, max_distance, OTHER=None):
@@ -29,30 +29,44 @@ def next_move(hunter_position, hunter_heading, target_measurement, max_distance,
     # the progress of the hunt (or maybe some localization information). Your return format
     # must be as follows in order to be graded properly.
 
-    # todo вычислять время "дохождения" робота и охотника до определенной точки
-    # todo начиная от следующей точки пути робота пробовать все, пока не найдется точка, до которой охотник дойдет быстрее
-    # todo идти к этой точке
-    # todo повторить процедуру
-
     if OTHER is None:
         kalman_filter = KalmanFilter(measurement=target_measurement)
-        OTHER = {'kalman_filter': kalman_filter}
+        OTHER = {
+            'kalman_filter': kalman_filter,
+            'target_position': (0, 0),
+            'meeting_position': (0, 0),
+        }
     else:
         kalman_filter = OTHER['kalman_filter']
 
     kalman_filter.step(target_measurement)
-    target_position = kalman_filter.get_prediction()
+    next_target_position = kalman_filter.get_prediction()
 
-    distance_till_target = distance_between(target_position, hunter_position)
-    if distance_till_target > max_distance:
+    max_steps = 15
+    for steps in range(max_steps):
+        meeting_position = kalman_filter.get_prediction(steps=steps)
+
+        distance_from_hunter = distance_between(meeting_position, hunter_position)
+        distance_from_target = distance_between(meeting_position, target_measurement)
+
+        if distance_from_hunter < distance_from_target:
+            # Hunter can reach predicted point faster than target
+            break
+    else:
+        # It's impossible to chase target from current location so just move to next target position
+        meeting_position = next_target_position
+        distance_from_target = distance_between(meeting_position, hunter_position)
+
+    if distance_from_target > max_distance:
         distance = max_distance
     else:
-        distance = distance_till_target
+        distance = distance_from_target
 
-    direction_to_target = get_heading(hunter_position, target_position)
-    turning = direction_to_target - hunter_heading
+    direction_to_meeting_position = get_heading(hunter_position, meeting_position)
+    turning = direction_to_meeting_position - hunter_heading
 
-    OTHER['target_position'] = target_position
+    OTHER['meeting_position'] = meeting_position
+    OTHER['target_position'] = next_target_position
 
     return turning, distance, OTHER
 
@@ -111,7 +125,9 @@ def demo_grading_graph(hunter_bot, target_bot, next_move_fcn, OTHER = None):
     """Returns True if your next_move_fcn successfully guides the hunter_bot
     to the target_bot. This function is here to help you understand how we
     will grade your submission."""
-    max_distance = 0.98 * target_bot.distance # 0.98 is an example. It will change.
+
+    # max_distance = 0.98 * target_bot.distance # 0.98 is an example. It will change.
+    max_distance = 1.94 * target_bot.distance # 1.94 is an example. It will change.
     separation_tolerance = 0.02 * target_bot.distance # hunter must be within 0.02 step size to catch target
     caught = False
     ctr = 0
@@ -151,8 +167,15 @@ def demo_grading_graph(hunter_bot, target_bot, next_move_fcn, OTHER = None):
     prediction.shape('arrow')
     prediction.color('pink')
     prediction.resizemode('user')
-    prediction.shapesize(0.5, 0.5, 0.5)
+    prediction.shapesize(0.2, 0.2, 0.2)
     prediction.penup()
+
+    meeting = turtle.Turtle()
+    meeting.shape('circle')
+    meeting.color('red')
+    meeting.resizemode('user')
+    meeting.shapesize(0.3, 0.3, 0.3)
+    meeting.penup()
     #End of Visualization
     # We will use your next_move_fcn until we catch the target or time expires.
     while not caught and ctr < 1000:
@@ -169,7 +192,8 @@ def demo_grading_graph(hunter_bot, target_bot, next_move_fcn, OTHER = None):
 
         # This is where YOUR function will be called.
         turning, distance, OTHER = next_move_fcn(hunter_position, hunter_bot.heading, target_measurement, max_distance, OTHER)
-        position_guess = OTHER['target_position']
+        position_guess = OTHER['meeting_position']
+        next_target_guess = OTHER['target_position']
 
         # Don't try to move faster than allowed!
         if distance > max_distance:
@@ -190,9 +214,15 @@ def demo_grading_graph(hunter_bot, target_bot, next_move_fcn, OTHER = None):
         chaser_robot.goto(hunter_bot.x*size_multiplier, hunter_bot.y*size_multiplier-100)
 
         prediction.setheading(target_bot.heading*180/pi)
-        prediction.goto(position_guess[0]*size_multiplier, position_guess[1]*size_multiplier-100)
+        prediction.goto(next_target_guess[0]*size_multiplier, next_target_guess[1]*size_multiplier-100)
         prediction.stamp()
+
+        meeting.clear()
+        meeting.setheading(target_bot.heading*180/pi)
+        meeting.goto(position_guess[0]*size_multiplier, position_guess[1]*size_multiplier-100)
+        meeting.stamp()
         #End of visualization
+
         ctr += 1
         if ctr >= 1000:
             print("It took too many steps to catch the target.")
@@ -245,5 +275,5 @@ if __name__ == '__main__':
 
     hunter = robot(-10.0, -10.0, 0.0)
 
-    # print(demo_grading(hunter, target, next_move))
-    print(demo_grading_graph(hunter, target, next_move))
+    print(demo_grading(hunter, target, next_move))
+    # print(demo_grading_graph(hunter, target, next_move))
