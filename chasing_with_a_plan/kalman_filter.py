@@ -3,7 +3,7 @@ from math import *
 
 
 class KalmanFilter:
-    def __init__(self, measurement=None):
+    def __init__(self, measurement=None, R_multiplier=100, Q_multiplier=.00000001, P_multiplier=1000):
         if measurement is None:
             x_measurement, y_measurement = (0, 0)
         else:
@@ -11,9 +11,14 @@ class KalmanFilter:
 
         self.I = np.matrix(np.identity(5))
         self.H = np.matrix([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]])
-        self.P = self.I * 1000
+        self.P = self.I * P_multiplier
         self.X = np.matrix([x_measurement, y_measurement, 0.1, 0.1, 0.1]).T
-        self.R = np.matrix(np.identity(2)) * 100
+        self.R = np.matrix(np.identity(2)) * R_multiplier
+        self.Q_multiplier = Q_multiplier
+
+    def get_position(self):
+        xy_estimate = self.X[0, 0], self.X[1, 0]
+        return xy_estimate
 
     def unpack_X(self, X):
         x = X[0, 0]
@@ -46,7 +51,7 @@ class KalmanFilter:
 
     def step(self, measurement, dt=1):
         F = self.get_F(self.X, dt)
-        Q = F * F.T * .01
+        Q = F * F.T * self.Q_multiplier
 
         # Predict
         self.X = self.f(self.X, dt)
