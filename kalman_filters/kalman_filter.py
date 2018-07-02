@@ -169,3 +169,26 @@ class ExtendedKalmanFilter(KalmanFilterBase):
         xy_estimate = X[0, 0], X[1, 0]
 
         return xy_estimate
+
+
+class UnscentedKalmanFilter(KalmanFilterBase):
+    def __init__(self, *args, **kwargs):
+        self.state_size = 6
+        self.measurement_size = 2
+
+        super().__init__(*args, **kwargs)
+
+    def step(self, measurement, dt=1):
+        # todo tnse
+        F = self._get_F(self.X, dt)
+        Q = F * F.T * self.Q_multiplier
+
+        self.X = self._f(self.X, dt)
+        self.P = F * self.P * F.T + Q
+
+        Z = np.matrix(measurement).T
+        Y = Z - self.H * self.X
+        S = self.H * self.P * self.H.T + self.R
+        K = self.P * self.H.T * np.linalg.pinv(S)
+        self.X = self.X + K * Y
+        self.P = (self.I - K * self.H) * self.P
