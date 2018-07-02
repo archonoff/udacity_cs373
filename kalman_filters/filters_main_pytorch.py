@@ -10,7 +10,7 @@ from kalman_filters.kalman_filter_pytorch import KalmanFilter as KalmanFiletrPyT
 from kalman_filters.utils import distance_between
 
 
-def run_filter(kalman_filter: KalmanFilterBase, target_bot: Robot):
+def run_filter(kalman_filter, target_bot: Robot):
     localized = False
     distance_tolerance = 0.01 * target_bot.distance
     ctr = 0
@@ -47,10 +47,12 @@ def run_filter(kalman_filter: KalmanFilterBase, target_bot: Robot):
 
 def find_optimal(test_target: Robot):
     kf = KalmanFiletrPyTorch(test_target)
+    print(kf.run_filter())
 
-    errors = []
-    for optimezation_step in range(10):
-        loss = kf.run_filter()
+    # run_filter(kalman_filter: KalmanFilterBase, target_bot: Robot):
+    # errors = []
+    # for optimezation_step in range(10):
+    #     loss = kf.run_filter()
 
 
 if __name__ == '__main__':
@@ -62,9 +64,6 @@ if __name__ == '__main__':
     find_optimal(test_target)
     exit()
 
-    line_styles = ["-", "--", "--.", "-.", "-..", ":"]
-    line_cycler = cycle(line_styles)
-
     # Preparing graph
     figure, axes = plt.subplots(nrows=2, ncols=1)
     figure.set_figheight(10)
@@ -72,7 +71,7 @@ if __name__ == '__main__':
     ax1, ax2 = axes
 
     # Run Kalman filter
-    kalman_filter = KalmanFilter(R_multiplier=100, Q_multiplier=0.0001, P_multiplier=100)
+    kalman_filter = KalmanFiletrPyTorch(test_target)
     measured_positions, filtered_positions, errors, true_positions = run_filter(kalman_filter, test_target)
 
     # Plot trajectories on top graph

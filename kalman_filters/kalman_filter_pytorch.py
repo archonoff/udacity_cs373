@@ -11,7 +11,7 @@ class KalmanFilterBase:
     state_size = NotImplemented
     measurement_size = NotImplemented
 
-    def __init__(self, test_target: Robot, measurement=None, R_multiplier=100, Q_multiplier=.001, P_multiplier=1000):
+    def __init__(self, test_target: Robot, measurement=None):
         if measurement is None:
             x_measurement, y_measurement = (0, 0)
         else:
@@ -20,26 +20,24 @@ class KalmanFilterBase:
         self.test_target = test_target
 
         self.X = self._init_X(x_measurement, y_measurement)
-        self.I = np.matrix(np.identity(self.state_size))
+        self.I = torch.eye(self.state_size, dtype=torch.float)
         self.H = self._get_H(self.X)
-        self.P = self._get_P(self.X, P_multiplier=P_multiplier)
-        self.R = self._get_R(self.X, R_multiplier=R_multiplier)
-
-        self.R_multiplier = R_multiplier
-        self.Q_multiplier = Q_multiplier
-        self.P_multiplier = P_multiplier
+        self.P = self._get_P(self.X)
+        self.R = self._get_R(self.X)
 
     def get_position(self):
         """Gets last estimated position"""
         xy_estimate = self.X[0, 0], self.X[1, 0]
         return xy_estimate
 
-    def _get_P(self, X, P_multiplier, dt=None):
-        P = self.I * P_multiplier
+    def _get_P(self, X, dt=None):
+        P = 10 * torch.rand((self.state_size, self.state_size), dtype=torch.float)
+        P = Variable(P)
         return P
 
-    def _get_R(self, X, R_multiplier, dt=None):
-        R = np.matrix(np.identity(self.measurement_size)) * R_multiplier
+    def _get_R(self, X, dt=None):
+        R = 10 * torch.rand((self.measurement_size, self.measurement_size), dtype=torch.float)
+        R = Variable(R)
         return R
 
     def _init_X(self, *args, **kwargs):
@@ -63,47 +61,83 @@ class KalmanFilter(KalmanFilterBase):
         self.state_size = 6
         self.measurement_size = 2
 
+        self.Q = self._get_Q()
+
         super().__init__(*args, **kwargs)
 
     def _init_X(self, x_measurement, y_measurement):
-        return np.matrix([x_measurement, y_measurement, 0, 0, 0, 0]).T
+        X = torch.rand((self.state_size, 1), dtype=torch.float)
+        X[0, 0] = x_measurement
+        X[1, 0] = y_measurement
+        return X
 
     def _get_F(self, X, dt=None):
-        F = np.matrix([
-            [1, 0, dt, 0, dt**2, 0],
+        F = np.array([
+            [1.0, 0, dt, 0, dt**2, 0],
             [0, 1, 0, dt, 0, dt**2],
             [0, 0, 1, 0, dt, 0],
             [0, 0, 0, 1, 0, dt],
             [0, 0, 0, 0, 1, 0],
             [0, 0, 0, 0, 0, 1],
-        ])
+        ], dtype=np.float32)
+        F = torch.from_numpy(F)
         return F
 
     def _get_H(self, X, dt=None):
-        H = np.matrix([[1, 0, 0, 0, 0, 0],
-                       [0, 1, 0, 0, 0, 0]])
+        H = np.array([[1.0, 0, 0, 0, 0, 0],
+                       [0, 1, 0, 0, 0, 0]], dtype=np.float32)
+        H = torch.from_numpy(H)
         return H
 
+    def _get_Q(self, F=None):
+        Q = 0.0001 * torch.rand((self.state_size, self.state_size), dtype=torch.float)
+        Q = Variable(Q)
+        return Q
+
     def step(self, measurement, dt=1):
+        x_measurement, y_measurement = measurement
+
         F = self._get_F(self.X, dt)
-        Q = F * F.T * self.Q_multiplier
 
-        self.X = F * self.X
-        self.P = F * self.P * F.T + Q
+        self.X = torch.mm(F, self.X)
+        self.P = torch.mm(torch.mm(F, self.P), F.transpose(0, 1)) + self.Q
 
-        Z = np.matrix(measurement).T
-        Y = Z - self.H * self.X
-        S = self.H * self.P * self.H.T + self.R
-        K = self.P * self.H.T * np.linalg.pinv(S)
-        self.X = self.X + K * Y
-        self.P = (self.I - K * self.H) * self.P
+        Z = Tensor([
+            [x_measurement],
+            [y_measurement]
+        ])
+        Y = Z - torch.mm(self.H, self.X)
+        S = torch.mm(torch.mm(self.H, self.P), self.H.transpose(0, 1)) + self.R
+        K = torch.mm(torch.mm(self.P, self.H.transpose(0, 1)), S.inverse())
+        self.X = self.X + torch.mm(K, Y)
+        self.P = torch.mm((self.I - torch.mm(K, self.H)), self.P)
 
-    def run_filter(self, steps=1000):
-        loss = 0
-
+    def run_bot(self, steps=1000):
+        measurements = []
+        true_positions = []
         for step in range(steps):
             measurement = self.test_target.sense()
+            true_position = (self.test_target.x, self.test_target.y)
+
+            measurements.append(measurement)
+            true_positions.append(true_position)
+
+            self.test_target.move_in_circle()
+
+        return measurements, Tensor(true_positions)
+
+    def run_filter(self, steps=1000):
+        measurements, true_positions = self.run_bot(steps)
+        predictions = []
+
+        for measurement in measurements:
             self.step(measurement)
+            position_guess = self.get_prediction()
+            self.test_target.move_in_circle()
+            predictions.append(position_guess)
+
+        predictions = Tensor(predictions)
+        loss = torch.nn.functional.mse_loss(predictions, true_positions)
 
         return loss
 
@@ -113,7 +147,7 @@ class KalmanFilter(KalmanFilterBase):
 
         for step in range(steps):
             F = self._get_F(X, dt)
-            X = F * X
+            X = torch.mm(F, X)
 
         xy_estimate = X[0, 0], X[1, 0]
 
