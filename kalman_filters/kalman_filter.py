@@ -17,7 +17,10 @@ class KalmanFilterBase:
         self.H = self._get_H(self.X)
         self.P = self._get_P(self.X, P_multiplier=P_multiplier)
         self.R = self._get_R(self.X, R_multiplier=R_multiplier)
+
+        self.R_multiplier = R_multiplier
         self.Q_multiplier = Q_multiplier
+        self.P_multiplier = P_multiplier
 
     def get_position(self):
         """Gets last estimated position"""
@@ -102,9 +105,13 @@ class KalmanFilter(KalmanFilterBase):
 
 
 class ExtendedKalmanFilter(KalmanFilterBase):
+    prev_x = None
+    prev_y = None
+    prev_b = None
+
     def __init__(self, *args, **kwargs):
         self.state_size = 5
-        self.measurement_size = 2
+        self.measurement_size = 3
 
         super().__init__(*args, **kwargs)
 
@@ -141,11 +148,42 @@ class ExtendedKalmanFilter(KalmanFilterBase):
         return F
 
     def _get_H(self, X, dt=None):
-        H = np.matrix([[1, 0, 0, 0, 0],
-                       [0, 1, 0, 0, 0]])
+        H = np.matrix([
+            [1, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0],
+            [0, 0, 1, 0, 0],
+        ])
         return H
+        # return self.I
 
     def step(self, measurement, dt=1):
+        # Extract more data from measurements
+        current_x, current_y = measurement
+
+        if self.prev_x is not None and self.prev_y is not None:
+            dx = current_x - self.prev_x
+            dy = current_y - self.prev_y
+            current_dist = sqrt(dx**2 + dy**2)
+            v = current_dist / dt
+            b = atan2(dy, dx)
+        else:
+            v = 0
+            b = 0
+
+        if self.prev_b is not None:
+            db = b - self.prev_b
+            w = db / dt
+        else:
+            w = 0
+
+        self.prev_x = current_x
+        self.prev_y = current_y
+        self.prev_b = b
+
+        # measurement: measured x, measured y, linear velocity, current beta, angular velocity
+        # measurement = current_x, current_y, v, b, w
+        measurement = current_x, current_y, v
+
         F = self._get_F(self.X, dt)
         Q = F * F.T * self.Q_multiplier
 
