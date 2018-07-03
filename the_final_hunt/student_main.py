@@ -35,8 +35,8 @@ def next_move(hunter_position, hunter_heading, target_measurement, max_distance,
         kalman_filter = KalmanFilter(
             measurement=target_measurement,
             R_multiplier=100,
-            Q_multiplier=.00001,
-            P_multiplier=1
+            Q_multiplier=.01,
+            P_multiplier=100
         )
         OTHER = {
             'kalman_filter': kalman_filter,
