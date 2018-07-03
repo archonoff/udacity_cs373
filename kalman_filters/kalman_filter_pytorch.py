@@ -3,15 +3,18 @@ from math import *
 import torch
 from torch.autograd import Variable
 from torch import Tensor
+from torch import nn
 
 from kalman_filters.robot import Robot
 
 
-class KalmanFilterBase:
+class KalmanFilterBase(nn.Module):
     state_size = NotImplemented
     measurement_size = NotImplemented
 
     def __init__(self, test_target: Robot, measurement=None):
+        super().__init__()      # PyTorch __init__
+
         if measurement is None:
             x_measurement, y_measurement = (0, 0)
         else:
@@ -20,7 +23,7 @@ class KalmanFilterBase:
         self.test_target = test_target
 
         self.X = self._init_X(x_measurement, y_measurement)
-        self.I = torch.eye(self.state_size, dtype=torch.float)
+        self.I = Variable(torch.eye(self.state_size, dtype=torch.float), requires_grad=False)
         self.H = self._get_H(self.X)
         self.P = self._get_P(self.X)
         self.R = self._get_R(self.X)
@@ -30,15 +33,19 @@ class KalmanFilterBase:
         xy_estimate = self.X[0, 0], self.X[1, 0]
         return xy_estimate
 
-    def _get_P(self, X, dt=None):
-        P = 10 * torch.rand((self.state_size, self.state_size), dtype=torch.float)
-        P = Variable(P)
+    def _get_P(self, X, P_multiplier=100, dt=None):
+        # P = 10 * torch.rand((self.state_size, self.state_size), dtype=torch.float)
+        P = self.I * P_multiplier
         return P
 
     def _get_R(self, X, dt=None):
         R = 10 * torch.rand((self.measurement_size, self.measurement_size), dtype=torch.float)
-        R = Variable(R)
+        R = nn.Parameter(R)
         return R
+
+    def print_params(self):
+        for n, p in self.named_parameters():
+            print('Name: {}\n{}'.format(n, p))
 
     def _init_X(self, *args, **kwargs):
         raise NotImplementedError
@@ -61,14 +68,16 @@ class KalmanFilter(KalmanFilterBase):
         self.state_size = 6
         self.measurement_size = 2
 
-        self.Q = self._get_Q()
-
         super().__init__(*args, **kwargs)
+
+        self.Q = self._get_Q()
+        self.mse_loss = nn.MSELoss()
 
     def _init_X(self, x_measurement, y_measurement):
         X = torch.rand((self.state_size, 1), dtype=torch.float)
         X[0, 0] = x_measurement
         X[1, 0] = y_measurement
+        X = Variable(X, requires_grad=False)
         return X
 
     def _get_F(self, X, dt=None):
@@ -81,17 +90,19 @@ class KalmanFilter(KalmanFilterBase):
             [0, 0, 0, 0, 0, 1],
         ], dtype=np.float32)
         F = torch.from_numpy(F)
+        F = Variable(F, requires_grad=False)
         return F
 
     def _get_H(self, X, dt=None):
         H = np.array([[1.0, 0, 0, 0, 0, 0],
                        [0, 1, 0, 0, 0, 0]], dtype=np.float32)
         H = torch.from_numpy(H)
+        H = Variable(H, requires_grad=False)
         return H
 
     def _get_Q(self, F=None):
         Q = 0.0001 * torch.rand((self.state_size, self.state_size), dtype=torch.float)
-        Q = Variable(Q)
+        Q = nn.Parameter(Q)
         return Q
 
     def step(self, measurement, dt=1):
@@ -106,6 +117,8 @@ class KalmanFilter(KalmanFilterBase):
             [x_measurement],
             [y_measurement]
         ])
+        Z = Variable(Z, requires_grad=False)
+
         Y = Z - torch.mm(self.H, self.X)
         S = torch.mm(torch.mm(self.H, self.P), self.H.transpose(0, 1)) + self.R
         K = torch.mm(torch.mm(self.P, self.H.transpose(0, 1)), S.inverse())
@@ -124,7 +137,10 @@ class KalmanFilter(KalmanFilterBase):
 
             self.test_target.move_in_circle()
 
-        return measurements, Tensor(true_positions)
+        return measurements, Variable(Tensor(true_positions), requires_grad=False)
+
+    def forward(self, steps=1000):
+        return self.run_filter(steps)
 
     def run_filter(self, steps=1000):
         measurements, true_positions = self.run_bot(steps)
@@ -136,8 +152,8 @@ class KalmanFilter(KalmanFilterBase):
             self.test_target.move_in_circle()
             predictions.append(position_guess)
 
-        predictions = Tensor(predictions)
-        loss = torch.nn.functional.mse_loss(predictions, true_positions)
+        predictions = torch.stack(predictions)
+        loss = self.mse_loss(predictions, true_positions)
 
         return loss
 
@@ -149,7 +165,7 @@ class KalmanFilter(KalmanFilterBase):
             F = self._get_F(X, dt)
             X = torch.mm(F, X)
 
-        xy_estimate = X[0, 0], X[1, 0]
+        xy_estimate = X[0:2, 0]
 
         return xy_estimate
 
