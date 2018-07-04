@@ -4,7 +4,7 @@ from math import pi
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 from torch import optim
-from torchviz import make_dot
+# from torchviz import make_dot
 
 from kalman_filters.robot import Robot
 from kalman_filters.kalman_filter import ExtendedKalmanFilter, KalmanFilterBase, KalmanFilter
@@ -57,7 +57,7 @@ def find_optimal(test_target: Robot):
         # lr=.01,
     )
 
-    epochs = 100
+    epochs = 10
     for epoch in range(epochs):
         print(f'Epoch: {epoch}')
         kf.print_params()

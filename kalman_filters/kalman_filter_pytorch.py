@@ -47,23 +47,13 @@ class KalmanFilterBase(nn.Module):
         for n, p in self.named_parameters():
             print('Name: {}\n{}'.format(n, p))
 
-    def _init_X(self, *args, **kwargs):
-        raise NotImplementedError
-
-    def _get_F(self, X, dt=None):
-        raise NotImplementedError
-
-    def _get_H(self, X, dt=None):
-        raise NotImplementedError
-
-    def step(self, measurement, dt=1):
-        raise NotImplementedError
-
-    def get_prediction(self, steps=1, dt=1):
-        raise NotImplementedError
-
 
 class KalmanFilter(KalmanFilterBase):
+    def _get_Q(self, F=None):
+        Q = 0.0001 * torch.rand((self.state_size, self.state_size), dtype=torch.float)
+        Q = nn.Parameter(Q)
+        return Q
+
     def __init__(self, *args, **kwargs):
         self.state_size = 6
         self.measurement_size = 2
@@ -99,11 +89,6 @@ class KalmanFilter(KalmanFilterBase):
         H = torch.from_numpy(H)
         H = Variable(H, requires_grad=False)
         return H
-
-    def _get_Q(self, F=None):
-        Q = 0.0001 * torch.rand((self.state_size, self.state_size), dtype=torch.float)
-        Q = nn.Parameter(Q)
-        return Q
 
     def step(self, measurement, dt=1):
         x_measurement, y_measurement = measurement
