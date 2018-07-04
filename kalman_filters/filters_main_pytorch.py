@@ -1,6 +1,8 @@
 from itertools import cycle
+import numpy as np
 
 from math import pi
+import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 from torch import optim
@@ -52,12 +54,12 @@ def find_optimal(test_target: Robot):
     optimizer = optim.SGD(
         [
             {'params': kf.R, 'lr': .1},
-            {'params': kf.Q, 'lr': .000000001}
+            {'params': kf.Q_multiplier, 'lr': .000001}
         ],
         # lr=.01,
     )
 
-    epochs = 10
+    epochs = 100
     for epoch in range(epochs):
         print(f'Epoch: {epoch}')
         kf.print_params()
@@ -67,9 +69,10 @@ def find_optimal(test_target: Robot):
         loss.backward(retain_graph=True)
         optimizer.step()
         print(f'Loss: {loss}')
+        print()
 
-    for n, p in kf.named_parameters():
-        print('Name: {}\n{}'.format(n, p))
+    kf.print_params()
+    print(f'Loss: {loss}')
 
     # Last iteration results
     '''
@@ -90,6 +93,25 @@ def find_optimal(test_target: Robot):
             [0.0801, 0.0031, 0.0550, -0.0268, -2.2315, 0.8949],
             [0.0161, -0.0073, -0.2275, 0.1143, 1.5691, 0.2306]])
     '''
+    # Results using Q multiplicator
+    '''
+    Name: R
+    Parameter containing:
+    tensor([[ 8.4598,  7.9919],
+            [ 3.9773,  6.2945]])
+    Name: Q_multiplier
+    Parameter containing:
+    tensor(1.00000e-02 *
+           [ 2.5113])
+    Q: tensor(1.00000e-02 *
+           [[ 7.5243,  0.0000,  5.0162,  0.0000,  2.5081,  0.0000],
+            [ 0.0000,  7.5243,  0.0000,  5.0162,  0.0000,  2.5081],
+            [ 5.0162,  0.0000,  5.0162,  0.0000,  2.5081,  0.0000],
+            [ 0.0000,  5.0162,  0.0000,  5.0162,  0.0000,  2.5081],
+            [ 2.5081,  0.0000,  2.5081,  0.0000,  2.5081,  0.0000],
+            [ 0.0000,  2.5081,  0.0000,  2.5081,  0.0000,  2.5081]])
+    Loss: 3.061612367630005
+    '''
 
 
 if __name__ == '__main__':
@@ -98,9 +120,8 @@ if __name__ == '__main__':
     measurement_noise = .05 * test_target.distance
     test_target.set_noise(0.0, 0.0, measurement_noise)
 
-    find_optimal(test_target)
-
-    exit()
+    # find_optimal(test_target)
+    # exit()
 
     # Preparing graph
     figure, axes = plt.subplots(nrows=2, ncols=1)
@@ -109,7 +130,25 @@ if __name__ == '__main__':
     ax1, ax2 = axes
 
     # Run Kalman filter
-    kalman_filter = KalmanFiletrPyTorch(test_target)
+    Q = np.matrix(
+        [[2.2123e+08, 0.0000e+00, 1.4749e+08, 0.0000e+00, 7.3743e+07,
+          0.0000e+00],
+         [0.0000e+00, 2.2123e+08, 0.0000e+00, 1.4749e+08, 0.0000e+00,
+          7.3743e+07],
+         [1.4749e+08, 0.0000e+00, 1.4749e+08, 0.0000e+00, 7.3743e+07,
+          0.0000e+00],
+         [0.0000e+00, 1.4749e+08, 0.0000e+00, 1.4749e+08, 0.0000e+00,
+          7.3743e+07],
+         [7.3743e+07, 0.0000e+00, 7.3743e+07, 0.0000e+00, 7.3743e+07,
+          0.0000e+00],
+         [0.0000e+00, 7.3743e+07, 0.0000e+00, 7.3743e+07, 0.0000e+00,
+          7.3743e+07]]
+    ) * 1.00000e-02
+    R = np.matrix(
+        [[1.0683e+08, -7.0131e+07],
+         [-7.9223e+07, 5.2008e+07]]
+    )
+    kalman_filter = KalmanFilter(Q=Q, R=R)
     measured_positions, filtered_positions, errors, true_positions = run_filter(kalman_filter, test_target)
 
     # Plot trajectories on top graph
@@ -127,5 +166,5 @@ if __name__ == '__main__':
     ax2.yaxis.set_minor_formatter(FormatStrFormatter('%g'))
     ax2.tick_params(which='minor', labelsize=8)
     ax2.grid(which='both')
-    ax2.legend()
+    # ax2.legend()
     plt.show()

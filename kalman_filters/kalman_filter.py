@@ -6,7 +6,7 @@ class KalmanFilterBase:
     state_size = NotImplemented
     measurement_size = NotImplemented
 
-    def __init__(self, measurement=None, R_multiplier=100, Q_multiplier=.001, P_multiplier=1000):
+    def __init__(self, measurement=None, R_multiplier=100, R=None, Q_multiplier=.001, Q=None, P_multiplier=1000):
         if measurement is None:
             x_measurement, y_measurement = (0, 0)
         else:
@@ -16,7 +16,12 @@ class KalmanFilterBase:
         self.I = np.matrix(np.identity(self.state_size))
         self.H = self._get_H(self.X)
         self.P = self._get_P(self.X, P_multiplier=P_multiplier)
-        self.R = self._get_R(self.X, R_multiplier=R_multiplier)
+        if R is not None:
+            self.R = R
+        else:
+            self.R = self._get_R(self.X, R_multiplier=R_multiplier)
+
+        self.Q = Q
 
         self.R_multiplier = R_multiplier
         self.Q_multiplier = Q_multiplier
@@ -79,7 +84,10 @@ class KalmanFilter(KalmanFilterBase):
 
     def step(self, measurement, dt=1):
         F = self._get_F(self.X, dt)
-        Q = F * F.T * self.Q_multiplier
+        if self.Q is None:
+            Q = F * F.T * self.Q_multiplier
+        else:
+            Q = self.Q
 
         self.X = F * self.X
         self.P = F * self.P * F.T + Q

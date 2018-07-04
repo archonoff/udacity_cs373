@@ -46,12 +46,12 @@ class KalmanFilterBase(nn.Module):
     def print_params(self):
         for n, p in self.named_parameters():
             print('Name: {}\n{}'.format(n, p))
+        print('Q: {}'.format(self.Q))
 
 
 class KalmanFilter(KalmanFilterBase):
     def _get_Q(self, F=None):
-        Q = 0.0001 * torch.rand((self.state_size, self.state_size), dtype=torch.float)
-        Q = nn.Parameter(Q)
+        Q = torch.mm(F, F.transpose(0, 1)) * self.Q_multiplier
         return Q
 
     def __init__(self, *args, **kwargs):
@@ -60,7 +60,8 @@ class KalmanFilter(KalmanFilterBase):
 
         super().__init__(*args, **kwargs)
 
-        self.Q = self._get_Q()
+        self.Q_multiplier = nn.Parameter(Tensor([0.0001]))
+        self.Q = self._get_Q(self._get_F(self.X, dt=1))
         self.mse_loss = nn.MSELoss()
 
     def _init_X(self, x_measurement, y_measurement):
@@ -94,6 +95,7 @@ class KalmanFilter(KalmanFilterBase):
         x_measurement, y_measurement = measurement
 
         F = self._get_F(self.X, dt)
+        self.Q = self._get_Q(F)
 
         self.X = torch.mm(F, self.X)
         self.P = torch.mm(torch.mm(F, self.P), F.transpose(0, 1)) + self.Q
