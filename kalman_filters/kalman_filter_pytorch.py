@@ -142,6 +142,11 @@ class KalmanFilter(KalmanFilterBase):
         predictions = torch.stack(predictions)
         loss = self.mse_loss(predictions, true_positions)
 
+        self.X.detach_()
+        self.I.detach_()
+        self.H.detach_()
+        self.P.detach_()
+
         return loss
 
     def get_prediction(self, steps=1, dt=1):

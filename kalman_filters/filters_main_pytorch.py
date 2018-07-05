@@ -6,7 +6,7 @@ import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 from torch import optim
-# from torchviz import make_dot
+from torchviz import make_dot
 
 from kalman_filters.robot import Robot
 from kalman_filters.kalman_filter import ExtendedKalmanFilter, KalmanFilterBase, KalmanFilter
@@ -51,25 +51,27 @@ def run_filter(kalman_filter, target_bot: Robot):
 
 def find_optimal(test_target: Robot):
     kf = KalmanFiletrPyTorch(test_target)
-    optimizer = optim.SGD(
+    optimizer = optim.Adam(
         [
             {'params': kf.R, 'lr': .1},
-            {'params': kf.Q_multiplier, 'lr': .000001}
+            {'params': kf.Q_multiplier, 'lr': .01}
         ],
-        # lr=.01,
     )
 
-    epochs = 100
+    epochs = 10000
     for epoch in range(epochs):
         print(f'Epoch: {epoch}')
         kf.print_params()
         optimizer.zero_grad()
         loss = kf.run_filter()
-        # make_dot(loss, params=dict(kf.named_parameters()))
-        loss.backward(retain_graph=True)
+        loss.backward()
         optimizer.step()
         print(f'Loss: {loss}')
         print()
+
+    # dot_file = make_dot(loss, params=dict(kf.named_parameters()))
+    # dot_file.format = 'svg'
+    # dot_file.render()
 
     kf.print_params()
     print(f'Loss: {loss}')
@@ -93,6 +95,7 @@ def find_optimal(test_target: Robot):
             [0.0801, 0.0031, 0.0550, -0.0268, -2.2315, 0.8949],
             [0.0161, -0.0073, -0.2275, 0.1143, 1.5691, 0.2306]])
     '''
+
     # Results using Q multiplicator
     '''
     Name: R
@@ -113,6 +116,81 @@ def find_optimal(test_target: Robot):
     Loss: 3.061612367630005
     '''
 
+    # After detaching
+    '''
+    Name: R
+    Parameter containing:
+    tensor([[ 4.8707,  6.4799],
+            [ 3.5715,  8.0508]])
+    Name: Q_multiplier
+    Parameter containing:
+    tensor(1.00000e-02 *
+           [ 2.5243])
+    Q: tensor(1.00000e-02 *
+           [[ 7.5637,  0.0000,  5.0425,  0.0000,  2.5212,  0.0000],
+            [ 0.0000,  7.5637,  0.0000,  5.0425,  0.0000,  2.5212],
+            [ 5.0425,  0.0000,  5.0425,  0.0000,  2.5212,  0.0000],
+            [ 0.0000,  5.0425,  0.0000,  5.0425,  0.0000,  2.5212],
+            [ 2.5212,  0.0000,  2.5212,  0.0000,  2.5212,  0.0000],
+            [ 0.0000,  2.5212,  0.0000,  2.5212,  0.0000,  2.5212]])
+    Loss: 3.0173444747924805
+    '''
+
+    # Sharp transition
+    '''
+    Epoch: 17
+    Name: R
+    Parameter containing:
+    tensor([[ 8.5739,  5.6576],
+            [ 9.8287,  6.3844]])
+    Name: Q_multiplier
+    Parameter containing:
+    tensor(1.00000e-02 *
+           [ 3.3377])
+    Q: tensor([[ 0.1000,  0.0000,  0.0667,  0.0000,  0.0333,  0.0000],
+            [ 0.0000,  0.1000,  0.0000,  0.0667,  0.0000,  0.0333],
+            [ 0.0667,  0.0000,  0.0667,  0.0000,  0.0333,  0.0000],
+            [ 0.0000,  0.0667,  0.0000,  0.0667,  0.0000,  0.0333],
+            [ 0.0333,  0.0000,  0.0333,  0.0000,  0.0333,  0.0000],
+            [ 0.0000,  0.0333,  0.0000,  0.0333,  0.0000,  0.0333]])
+    Loss: 1655.6890869140625
+
+    Epoch: 18
+    Name: R
+    Parameter containing:
+    tensor([[ 6.6679e+08, -1.0173e+09],
+            [-5.8558e+08,  8.9341e+08]])
+    Name: Q_multiplier
+    Parameter containing:
+    tensor([ 26994.2305])
+    Q: tensor([[ 0.1001,  0.0000,  0.0668,  0.0000,  0.0334,  0.0000],
+            [ 0.0000,  0.1001,  0.0000,  0.0668,  0.0000,  0.0334],
+            [ 0.0668,  0.0000,  0.0668,  0.0000,  0.0334,  0.0000],
+            [ 0.0000,  0.0668,  0.0000,  0.0668,  0.0000,  0.0334],
+            [ 0.0334,  0.0000,  0.0334,  0.0000,  0.0334,  0.0000],
+            [ 0.0000,  0.0334,  0.0000,  0.0334,  0.0000,  0.0334]])
+    Loss: 20.964256286621094
+    '''
+
+    # Adam stopped optimizing
+    '''
+    Epoch: 208
+    Name: R
+    Parameter containing:
+    tensor([[ 7.7792,  7.1198],
+            [ 6.5951,  8.5665]])
+    Name: Q_multiplier
+    Parameter containing:
+    tensor([ 0.1786])
+    Q: tensor([[ 0.5358,  0.0000,  0.3572,  0.0000,  0.1786,  0.0000],
+            [ 0.0000,  0.5358,  0.0000,  0.3572,  0.0000,  0.1786],
+            [ 0.3572,  0.0000,  0.3572,  0.0000,  0.1786,  0.0000],
+            [ 0.0000,  0.3572,  0.0000,  0.3572,  0.0000,  0.1786],
+            [ 0.1786,  0.0000,  0.1786,  0.0000,  0.1786,  0.0000],
+            [ 0.0000,  0.1786,  0.0000,  0.1786,  0.0000,  0.1786]])
+    Loss: 2.176464319229126
+    '''
+
 
 if __name__ == '__main__':
     test_target = Robot(0.0, 10.0, 0.0, 2*pi / 30, 1.5)
@@ -130,24 +208,18 @@ if __name__ == '__main__':
     ax1, ax2 = axes
 
     # Run Kalman filter
-    Q = np.matrix(
-        [[2.2123e+08, 0.0000e+00, 1.4749e+08, 0.0000e+00, 7.3743e+07,
-          0.0000e+00],
-         [0.0000e+00, 2.2123e+08, 0.0000e+00, 1.4749e+08, 0.0000e+00,
-          7.3743e+07],
-         [1.4749e+08, 0.0000e+00, 1.4749e+08, 0.0000e+00, 7.3743e+07,
-          0.0000e+00],
-         [0.0000e+00, 1.4749e+08, 0.0000e+00, 1.4749e+08, 0.0000e+00,
-          7.3743e+07],
-         [7.3743e+07, 0.0000e+00, 7.3743e+07, 0.0000e+00, 7.3743e+07,
-          0.0000e+00],
-         [0.0000e+00, 7.3743e+07, 0.0000e+00, 7.3743e+07, 0.0000e+00,
-          7.3743e+07]]
-    ) * 1.00000e-02
     R = np.matrix(
-        [[1.0683e+08, -7.0131e+07],
-         [-7.9223e+07, 5.2008e+07]]
+        [[7.7792, 7.1198],
+         [6.5951, 8.5665]]
     )
+    Q = np.matrix(
+        [[0.5358, 0.0000, 0.3572, 0.0000, 0.1786, 0.0000],
+         [0.0000, 0.5358, 0.0000, 0.3572, 0.0000, 0.1786],
+         [0.3572, 0.0000, 0.3572, 0.0000, 0.1786, 0.0000],
+         [0.0000, 0.3572, 0.0000, 0.3572, 0.0000, 0.1786],
+         [0.1786, 0.0000, 0.1786, 0.0000, 0.1786, 0.0000],
+         [0.0000, 0.1786, 0.0000, 0.1786, 0.0000, 0.1786]]
+    )# * 1.00000e-02
     kalman_filter = KalmanFilter(Q=Q, R=R)
     measured_positions, filtered_positions, errors, true_positions = run_filter(kalman_filter, test_target)
 
