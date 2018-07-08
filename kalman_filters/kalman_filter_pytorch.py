@@ -39,13 +39,23 @@ class KalmanFilterBase(nn.Module):
         return P
 
     def _get_R(self, X, dt=None):
-        R = 10 * torch.rand((self.measurement_size, self.measurement_size), dtype=torch.float)
-        R = nn.Parameter(R)
+        self.R_d = nn.Parameter(Tensor([
+            [10, 0],
+            [0, 10],
+        ]))
+        self.R_nd = nn.Parameter(Tensor([
+            [0, 10],
+            [10, 0],
+        ]))
+
+        R = self.R_d + self.R_nd
+
         return R
 
     def print_params(self):
         for n, p in self.named_parameters():
             print('Name: {}\n{}'.format(n, p))
+        print('R: {}'.format(self.R_d + self.R_nd))
         print('Q: {}'.format(self.Q))
 
 
@@ -262,6 +272,6 @@ class ExtendedKalmanFilter(KalmanFilterBase):
         for step in range(steps):
             X = self._f(X, dt)
 
-        xy_estimate = X[0, 0], X[1, 0]
+        xy_estimate = X[0:2, 0]
 
         return xy_estimate
