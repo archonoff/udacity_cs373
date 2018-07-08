@@ -14,7 +14,7 @@ from kalman_filters.kalman_filter_pytorch import KalmanFilter as KalmanFiletrPyT
 from kalman_filters.utils import distance_between
 
 
-def run_filter(kalman_filter, target_bot: Robot):
+def run_filter(kalman_filter, target_bot: Robot, starting_point=None):
     localized = False
     distance_tolerance = 0.01 * target_bot.distance
     ctr = 0
@@ -34,7 +34,6 @@ def run_filter(kalman_filter, target_bot: Robot):
         target_bot.move_in_circle()
         true_position = (target_bot.x, target_bot.y)
         error = distance_between(position_guess, true_position)
-        errors.append(error)
 
         if error <= distance_tolerance:
             print("You got it right! It took you ", ctr, " steps to localize, R: {}, Q: {}, P: {}".format(kalman_filter.R_multiplier, kalman_filter.Q_multiplier, kalman_filter.P_multiplier))
@@ -42,9 +41,11 @@ def run_filter(kalman_filter, target_bot: Robot):
         # if ctr == 1000:
         #     print("Sorry, it took you too many steps to localize the target.")
 
-        measured_positions.append(measurement)
-        filtered_positions.append(position_guess)
-        true_positions.append(true_position)
+        if starting_point is not None and ctr >= starting_point:
+            measured_positions.append(measurement)
+            filtered_positions.append(position_guess)
+            true_positions.append(true_position)
+            errors.append(error)
 
     return measured_positions, filtered_positions, errors, true_positions
 
@@ -53,9 +54,9 @@ def find_optimal(test_target: Robot):
     kf = KalmanFiletrPyTorch(test_target)
     optimizer = optim.Adam(
         [
-            {'params': kf.R_d, 'lr': 1},
-            {'params': kf.R_nd, 'lr': 1},
-            {'params': kf.Q_multiplier, 'lr': .1}
+            {'params': kf.R_d, 'lr': 2},
+            {'params': kf.R_nd, 'lr': 2},
+            {'params': kf.Q_multiplier, 'lr': .5}
         ],
     )
 
@@ -216,6 +217,22 @@ def find_optimal(test_target: Robot):
             [ 0.0000,  1.1544,  0.0000,  1.1544,  0.0000,  1.1544]])
     '''
 
+    # 633 iterations (good results!)
+    '''
+    R = np.matrix(
+        [[-2.0109, 12.0110],
+         [-12.0110, -2.0109]]
+    )
+    Q = np.matrix(
+        [[9.0143, 0.0000, 6.0096, 0.0000, 3.0048, 0.0000],
+         [0.0000, 9.0143, 0.0000, 6.0096, 0.0000, 3.0048],
+         [6.0096, 0.0000, 6.0096, 0.0000, 3.0048, 0.0000],
+         [0.0000, 6.0096, 0.0000, 6.0096, 0.0000, 3.0048],
+         [3.0048, 0.0000, 3.0048, 0.0000, 3.0048, 0.0000],
+         [0.0000, 3.0048, 0.0000, 3.0048, 0.0000, 3.0048]]
+    )
+    '''
+
 
 if __name__ == '__main__':
     test_target = Robot(0.0, 10.0, 0.0, 2*pi / 30, 1.5)
@@ -234,19 +251,19 @@ if __name__ == '__main__':
 
     # Run Kalman filter
     R = np.matrix(
-        [[3.9974, 6.0027],
-         [-6.0027, 3.9974]]
+        [[-2.0109, 12.0110],
+         [-12.0110, -2.0109]]
     )
     Q = np.matrix(
-        [[1.8080, 0.0000, 1.2053, 0.0000, 0.6027, 0.0000],
-         [0.0000, 1.8080, 0.0000, 1.2053, 0.0000, 0.6027],
-         [1.2053, 0.0000, 1.2053, 0.0000, 0.6027, 0.0000],
-         [0.0000, 1.2053, 0.0000, 1.2053, 0.0000, 0.6027],
-         [0.6027, 0.0000, 0.6027, 0.0000, 0.6027, 0.0000],
-         [0.0000, 0.6027, 0.0000, 0.6027, 0.0000, 0.6027]]
+        [[9.0143, 0.0000, 6.0096, 0.0000, 3.0048, 0.0000],
+         [0.0000, 9.0143, 0.0000, 6.0096, 0.0000, 3.0048],
+         [6.0096, 0.0000, 6.0096, 0.0000, 3.0048, 0.0000],
+         [0.0000, 6.0096, 0.0000, 6.0096, 0.0000, 3.0048],
+         [3.0048, 0.0000, 3.0048, 0.0000, 3.0048, 0.0000],
+         [0.0000, 3.0048, 0.0000, 3.0048, 0.0000, 3.0048]]
     )
     kalman_filter = KalmanFilter(Q=Q, R=R)
-    measured_positions, filtered_positions, errors, true_positions = run_filter(kalman_filter, test_target)
+    measured_positions, filtered_positions, errors, true_positions = run_filter(kalman_filter, test_target, starting_point=800)
 
     # Plot trajectories on top graph
     ax1.scatter(*zip(*measured_positions), s=2, label='Измеренное положение')
