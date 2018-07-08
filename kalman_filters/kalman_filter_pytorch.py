@@ -39,16 +39,25 @@ class KalmanFilterBase(nn.Module):
         return P
 
     def _get_R(self, X, dt=None):
+        R_d_limiter = Variable(Tensor([
+            [1, 0],
+            [0, 1]
+        ]), requires_grad=False)
+        R_nd_limiter = Variable(Tensor([
+            [0, 1],
+            [1, 0]
+        ]), requires_grad=False)
+
         self.R_d = nn.Parameter(Tensor([
             [10, 0],
             [0, 10],
         ]))
         self.R_nd = nn.Parameter(Tensor([
-            [0, 10],
-            [10, 0],
+            [0, 0],
+            [0, 0],
         ]))
 
-        R = self.R_d + self.R_nd
+        R = self.R_d * R_d_limiter + self.R_nd * R_nd_limiter
 
         return R
 
@@ -156,6 +165,7 @@ class KalmanFilter(KalmanFilterBase):
         self.I.detach_()
         self.H.detach_()
         self.P.detach_()
+        self.R.detach_()
 
         return loss
 
