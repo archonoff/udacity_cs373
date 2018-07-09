@@ -26,7 +26,6 @@ class KalmanFilterBase(nn.Module):
         self.I = Variable(torch.eye(self.state_size, dtype=torch.float), requires_grad=False)
         self.H = self._get_H(self.X)
         self.P = self._get_P(self.X)
-        self.R = self._get_R(self.X)
 
     def get_position(self):
         """Gets last estimated position"""
@@ -34,37 +33,13 @@ class KalmanFilterBase(nn.Module):
         return xy_estimate
 
     def _get_P(self, X, P_multiplier=100, dt=None):
-        # P = 10 * torch.rand((self.state_size, self.state_size), dtype=torch.float)
         P = self.I * P_multiplier
         return P
-
-    def _get_R(self, X, dt=None):
-        R_d_limiter = Variable(Tensor([
-            [1, 0],
-            [0, 1]
-        ]), requires_grad=False)
-        R_nd_limiter = Variable(Tensor([
-            [0, 1],
-            [1, 0]
-        ]), requires_grad=False)
-
-        self.R_d = nn.Parameter(Tensor([
-            [10, 0],
-            [0, 10],
-        ]))
-        self.R_nd = nn.Parameter(Tensor([
-            [0, 0],
-            [0, 0],
-        ]))
-
-        R = self.R_d * R_d_limiter + self.R_nd * R_nd_limiter
-
-        return R
 
     def print_params(self):
         for n, p in self.named_parameters():
             print('Name: {}\n{}'.format(n, p))
-        print('R: {}'.format(self.R_d + self.R_nd))
+        print('R: {}'.format(self.R))
         print('Q: {}'.format(self.Q))
 
 
@@ -79,8 +54,16 @@ class KalmanFilter(KalmanFilterBase):
 
         super().__init__(*args, **kwargs)
 
+        # Parameter for Q
         self.Q_multiplier = nn.Parameter(Tensor([0.0001]))
         self.Q = self._get_Q(self._get_F(self.X, dt=1))
+
+        # Parameters for R
+        self.R = nn.Parameter(Tensor([
+            [10, 0],
+            [0, 10],
+        ]))
+
         self.mse_loss = nn.MSELoss()
 
     def _init_X(self, x_measurement, y_measurement):
@@ -148,7 +131,7 @@ class KalmanFilter(KalmanFilterBase):
     def forward(self, steps=1000):
         return self.run_filter(steps)
 
-    def run_filter(self, steps=1000):
+    def run_filter(self, steps=1000, optimize_from_measurement=None):
         measurements, true_positions = self.run_bot(steps)
         predictions = []
 
@@ -159,13 +142,18 @@ class KalmanFilter(KalmanFilterBase):
             predictions.append(position_guess)
 
         predictions = torch.stack(predictions)
-        loss = self.mse_loss(predictions, true_positions)
+        if optimize_from_measurement is None:
+            loss = self.mse_loss(predictions, true_positions)
+        else:
+            if optimize_from_measurement >= steps:
+                raise RuntimeError('optimize_from_measurement parameter should be less than number of steps')
+            loss = self.mse_loss(predictions[optimize_from_measurement:], true_positions[optimize_from_measurement:])
 
         self.X.detach_()
         self.I.detach_()
         self.H.detach_()
         self.P.detach_()
-        self.R.detach_()
+        self.Q.detach_()
 
         return loss
 
