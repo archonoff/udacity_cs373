@@ -55,6 +55,7 @@ class KalmanFilter(KalmanFilterBase):
         super().__init__(*args, **kwargs)
 
         # Parameter for Q
+        # self.Q_multiplier = Variable(Tensor([0.01]))
         self.Q_multiplier = nn.Parameter(Tensor([0.0001]))
         self.Q = self._get_Q(self._get_F(self.X, dt=1))
 
