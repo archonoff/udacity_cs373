@@ -37,11 +37,8 @@ def run_filter(kalman_filter, target_bot: Robot, starting_point=None):
 
         if error <= distance_tolerance:
             print("You got it right! It took you ", ctr, " steps to localize, R: {}, Q: {}, P: {}".format(kalman_filter.R_multiplier, kalman_filter.Q_multiplier, kalman_filter.P_multiplier))
-            # localized = True
-        # if ctr == 1000:
-        #     print("Sorry, it took you too many steps to localize the target.")
 
-        if starting_point is not None and ctr >= starting_point:
+        if starting_point is None or ctr >= starting_point:
             measured_positions.append(measurement)
             filtered_positions.append(position_guess)
             true_positions.append(true_position)
@@ -54,9 +51,8 @@ def find_optimal(test_target: Robot):
     kf = KalmanFiletrPyTorch(test_target)
     optimizer = optim.Adam(
         [
-            {'params': kf.R_d, 'lr': 2},
-            {'params': kf.R_nd, 'lr': 2},
-            {'params': kf.Q_multiplier, 'lr': .5}
+            {'params': kf.R, 'lr': .5},
+            {'params': kf.Q_multiplier, 'lr': 1}
         ],
     )
 
@@ -65,7 +61,7 @@ def find_optimal(test_target: Robot):
         print(f'Epoch: {epoch}')
         kf.print_params()
         optimizer.zero_grad()
-        loss = kf.run_filter()
+        loss = kf.run_filter(optimize_from_measurement=5)
         loss.backward()
         optimizer.step()
         print(f'Loss: {loss}')
@@ -217,7 +213,7 @@ def find_optimal(test_target: Robot):
             [ 0.0000,  1.1544,  0.0000,  1.1544,  0.0000,  1.1544]])
     '''
 
-    # 633 iterations (good results!)
+    # 633 (nope) iterations (good results!)
     '''
     R = np.matrix(
         [[-2.0109, 12.0110],
@@ -231,6 +227,215 @@ def find_optimal(test_target: Robot):
          [3.0048, 0.0000, 3.0048, 0.0000, 3.0048, 0.0000],
          [0.0000, 3.0048, 0.0000, 3.0048, 0.0000, 3.0048]]
     )
+    '''
+
+    # 156 iterations
+    '''
+    Epoch: 156
+    Name: R_d
+    Parameter containing:
+    tensor([[-2.0109,  0.0000],
+            [ 0.0000, -2.0110]])
+    Name: R_nd
+    Parameter containing:
+    tensor([[  0.0000,  12.0110],
+            [-12.0110,   0.0000]])
+    Name: Q_multiplier
+    Parameter containing:
+    tensor([ 3.0054])
+    R: tensor([[ -2.0109,  12.0110],
+            [-12.0110,  -2.0110]])
+    Q: tensor([[ 9.0161,  0.0000,  6.0107,  0.0000,  3.0054,  0.0000],
+            [ 0.0000,  9.0161,  0.0000,  6.0107,  0.0000,  3.0054],
+            [ 6.0107,  0.0000,  6.0107,  0.0000,  3.0054,  0.0000],
+            [ 0.0000,  6.0107,  0.0000,  6.0107,  0.0000,  3.0054],
+            [ 3.0054,  0.0000,  3.0054,  0.0000,  3.0054,  0.0000],
+            [ 0.0000,  3.0054,  0.0000,  3.0054,  0.0000,  3.0054]])
+    Loss: 1.564954400062561
+    '''
+
+    # 164 iterations (calculating R in run_filter method
+    '''
+    Epoch: 164
+    Name: R_d
+    Parameter containing:
+    tensor([[-57.7639,   0.0000],
+            [  0.0000, -51.9728]])
+    Name: R_nd
+    Parameter containing:
+    tensor([[  0.0000,  12.0109],
+            [-11.6986,   0.0000]])
+    Name: Q_multiplier
+    Parameter containing:
+    tensor([ 3.0019])
+    R: tensor([[-57.7639,  12.0109],
+            [-11.6986, -51.9728]])
+    Q: tensor([[ 9.0056,  0.0000,  6.0037,  0.0000,  3.0019,  0.0000],
+            [ 0.0000,  9.0056,  0.0000,  6.0037,  0.0000,  3.0019],
+            [ 6.0037,  0.0000,  6.0037,  0.0000,  3.0019,  0.0000],
+            [ 0.0000,  6.0037,  0.0000,  6.0037,  0.0000,  3.0019],
+            [ 3.0019,  0.0000,  3.0019,  0.0000,  3.0019,  0.0000],
+            [ 0.0000,  3.0019,  0.0000,  3.0019,  0.0000,  3.0019]])
+    Loss: 1.1502504348754883
+    '''
+
+    # 110 iterations (loss on all iterations)
+    '''
+    Epoch: 110
+    Name: R_d
+    Parameter containing:
+    tensor([[-2.5426,  0.0000],
+            [ 0.0000, -0.4408]])
+    Name: R_nd
+    Parameter containing:
+    tensor([[ 0.0000,  8.4644],
+            [-7.2144,  0.0000]])
+    Name: Q_multiplier
+    Parameter containing:
+    tensor([ 3.0032])
+    R: tensor([[-2.5426,  8.4644],
+            [-7.2144, -0.4408]])
+    Q: tensor([[ 9.0096,  0.0000,  6.0064,  0.0000,  3.0032,  0.0000],
+            [ 0.0000,  9.0096,  0.0000,  6.0064,  0.0000,  3.0032],
+            [ 6.0064,  0.0000,  6.0064,  0.0000,  3.0032,  0.0000],
+            [ 0.0000,  6.0064,  0.0000,  6.0064,  0.0000,  3.0032],
+            [ 3.0032,  0.0000,  3.0032,  0.0000,  3.0032,  0.0000],
+            [ 0.0000,  3.0032,  0.0000,  3.0032,  0.0000,  3.0032]])
+    Loss: 1.4675135612487793
+    '''
+
+    # 222 iterations (optimizing R matrix as one parameter)
+    '''
+    Epoch: 222
+    Name: Q_multiplier
+    Parameter containing:
+    tensor([ 3.0038])
+    Name: R
+    Parameter containing:
+    tensor([[-0.2875,  0.6616],
+            [-0.6663, -0.2037]])
+    R: Parameter containing:
+    tensor([[-0.2875,  0.6616],
+            [-0.6663, -0.2037]])
+    Q: tensor([[ 9.0113,  0.0000,  6.0075,  0.0000,  3.0038,  0.0000],
+            [ 0.0000,  9.0113,  0.0000,  6.0075,  0.0000,  3.0038],
+            [ 6.0075,  0.0000,  6.0075,  0.0000,  3.0038,  0.0000],
+            [ 0.0000,  6.0075,  0.0000,  6.0075,  0.0000,  3.0038],
+            [ 3.0038,  0.0000,  3.0038,  0.0000,  3.0038,  0.0000],
+            [ 0.0000,  3.0038,  0.0000,  3.0038,  0.0000,  3.0038]])
+    Loss: 1.4995899200439453
+    '''
+
+    # 2337 (calculate loss on the last 500 measurements) - discouraging results
+    '''
+    Epoch: 2337
+    Name: Q_multiplier
+    Parameter containing:
+    tensor([ 2.7795])
+    Name: R
+    Parameter containing:
+    tensor([[-399.9714,   46.5682],
+            [ -46.6705, -400.0304]])
+    R: Parameter containing:
+    tensor([[-399.9714,   46.5682],
+            [ -46.6705, -400.0304]])
+    Q: tensor([[ 8.3392,  0.0000,  5.5594,  0.0000,  2.7797,  0.0000],
+            [ 0.0000,  8.3392,  0.0000,  5.5594,  0.0000,  2.7797],
+            [ 5.5594,  0.0000,  5.5594,  0.0000,  2.7797,  0.0000],
+            [ 0.0000,  5.5594,  0.0000,  5.5594,  0.0000,  2.7797],
+            [ 2.7797,  0.0000,  2.7797,  0.0000,  2.7797,  0.0000],
+            [ 0.0000,  2.7797,  0.0000,  2.7797,  0.0000,  2.7797]])
+    Loss: 0.9015505313873291
+    '''
+
+    # 381 (calculate loss on all measurements) - looks good
+    '''
+    Epoch: 381
+    Name: Q_multiplier
+    Parameter containing:
+    tensor([ 3.0046])
+    Name: R
+    Parameter containing:
+    tensor([[-0.3283,  0.6377],
+            [-0.6913, -0.2397]])
+    R: Parameter containing:
+    tensor([[-0.3283,  0.6377],
+            [-0.6913, -0.2397]])
+    Q: tensor([[ 9.0138,  0.0000,  6.0092,  0.0000,  3.0046,  0.0000],
+            [ 0.0000,  9.0138,  0.0000,  6.0092,  0.0000,  3.0046],
+            [ 6.0092,  0.0000,  6.0092,  0.0000,  3.0046,  0.0000],
+            [ 0.0000,  6.0092,  0.0000,  6.0092,  0.0000,  3.0046],
+            [ 3.0046,  0.0000,  3.0046,  0.0000,  3.0046,  0.0000],
+            [ 0.0000,  3.0046,  0.0000,  3.0046,  0.0000,  3.0046]])
+    Loss: 1.4997762441635132
+    '''
+
+    # 167 (calculate loss without first 5 measurements) - also not bad results
+    '''
+    Epoch: 167
+    Name: Q_multiplier
+    Parameter containing:
+    tensor([ 3.0034])
+    Name: R
+    Parameter containing:
+    tensor([[-3.8615,  3.1226],
+            [-2.6629, -0.7455]])
+    R: Parameter containing:
+    tensor([[-3.8615,  3.1226],
+            [-2.6629, -0.7455]])
+    Q: tensor([[ 9.0101,  0.0000,  6.0067,  0.0000,  3.0034,  0.0000],
+            [ 0.0000,  9.0101,  0.0000,  6.0067,  0.0000,  3.0034],
+            [ 6.0067,  0.0000,  6.0067,  0.0000,  3.0034,  0.0000],
+            [ 0.0000,  6.0067,  0.0000,  6.0067,  0.0000,  3.0034],
+            [ 3.0034,  0.0000,  3.0034,  0.0000,  3.0034,  0.0000],
+            [ 0.0000,  3.0034,  0.0000,  3.0034,  0.0000,  3.0034]])
+    Loss: 1.3123626708984375
+    '''
+
+    # 82 (small learning rate for Q) with small Q line is smooth but not so good as with greater Q
+    '''
+    Epoch: 82
+    Name: Q_multiplier
+    Parameter containing:
+    tensor(1.00000e-04 *
+           [ 5.2307])
+    Name: R
+    Parameter containing:
+    tensor([[-9.6636,  5.0430],
+            [-4.8959, -9.7244]])
+    R: Parameter containing:
+    tensor([[-9.6636,  5.0430],
+            [-4.8959, -9.7244]])
+    Q: tensor(1.00000e-03 *
+           [[ 1.5627,  0.0000,  1.0418,  0.0000,  0.5209,  0.0000],
+            [ 0.0000,  1.5627,  0.0000,  1.0418,  0.0000,  0.5209],
+            [ 1.0418,  0.0000,  1.0418,  0.0000,  0.5209,  0.0000],
+            [ 0.0000,  1.0418,  0.0000,  1.0418,  0.0000,  0.5209],
+            [ 0.5209,  0.0000,  0.5209,  0.0000,  0.5209,  0.0000],
+            [ 0.0000,  0.5209,  0.0000,  0.5209,  0.0000,  0.5209]])
+    Loss: 1.6090675592422485
+    '''
+
+    # 120 (changed learning rates for parameters) - and again, looks not smooth but close
+    '''
+    Epoch: 120
+    Name: Q_multiplier
+    Parameter containing:
+    tensor([ 6.0058])
+    Name: R
+    Parameter containing:
+    tensor([[-4.6134,  3.6263],
+            [-3.5682, -4.5814]])
+    R: Parameter containing:
+    tensor([[-4.6134,  3.6263],
+            [-3.5682, -4.5814]])
+    Q: tensor([[ 18.0175,   0.0000,  12.0116,   0.0000,   6.0058,   0.0000],
+            [  0.0000,  18.0175,   0.0000,  12.0116,   0.0000,   6.0058],
+            [ 12.0116,   0.0000,  12.0116,   0.0000,   6.0058,   0.0000],
+            [  0.0000,  12.0116,   0.0000,  12.0116,   0.0000,   6.0058],
+            [  6.0058,   0.0000,   6.0058,   0.0000,   6.0058,   0.0000],
+            [  0.0000,   6.0058,   0.0000,   6.0058,   0.0000,   6.0058]])
+    Loss: 1.308520793914795
     '''
 
 
@@ -251,19 +456,19 @@ if __name__ == '__main__':
 
     # Run Kalman filter
     R = np.matrix(
-        [[-2.0109, 12.0110],
-         [-12.0110, -2.0109]]
+        [[-4.6134, 3.6263],
+         [-3.5682, -4.5814]]
     )
     Q = np.matrix(
-        [[9.0143, 0.0000, 6.0096, 0.0000, 3.0048, 0.0000],
-         [0.0000, 9.0143, 0.0000, 6.0096, 0.0000, 3.0048],
-         [6.0096, 0.0000, 6.0096, 0.0000, 3.0048, 0.0000],
-         [0.0000, 6.0096, 0.0000, 6.0096, 0.0000, 3.0048],
-         [3.0048, 0.0000, 3.0048, 0.0000, 3.0048, 0.0000],
-         [0.0000, 3.0048, 0.0000, 3.0048, 0.0000, 3.0048]]
+        [[18.0175, 0.0000, 12.0116, 0.0000, 6.0058, 0.0000],
+         [0.0000, 18.0175, 0.0000, 12.0116, 0.0000, 6.0058],
+         [12.0116, 0.0000, 12.0116, 0.0000, 6.0058, 0.0000],
+         [0.0000, 12.0116, 0.0000, 12.0116, 0.0000, 6.0058],
+         [6.0058, 0.0000, 6.0058, 0.0000, 6.0058, 0.0000],
+         [0.0000, 6.0058, 0.0000, 6.0058, 0.0000, 6.0058]]
     )
     kalman_filter = KalmanFilter(Q=Q, R=R)
-    measured_positions, filtered_positions, errors, true_positions = run_filter(kalman_filter, test_target, starting_point=800)
+    measured_positions, filtered_positions, errors, true_positions = run_filter(kalman_filter, test_target, starting_point=None)
 
     # Plot trajectories on top graph
     ax1.scatter(*zip(*measured_positions), s=2, label='Измеренное положение')
