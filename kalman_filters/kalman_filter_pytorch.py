@@ -201,11 +201,11 @@ class ExtendedKalmanFilter(KalmanFilterBase):
 
         self.mse_loss = nn.MSELoss()
 
-    def _f(self, X, dt):
+    def _f(self, X, dt=1):
         new_X = X.clone()
 
-        new_X[0, 0] = X[0, 0] + torch.sin(X[3, 0]) * X[2, 0] * dt
-        new_X[1, 0] = X[1, 0] + torch.cos(X[3, 0]) * X[2, 0] * dt
+        # new_X[0, 0] = X[0, 0] + torch.sin(X[3, 0]) * X[2, 0] * dt
+        # new_X[1, 0] = X[1, 0] + torch.cos(X[3, 0]) * X[2, 0] * dt
         new_X[3, 0] = X[3, 0] + X[4, 0] * dt
 
         return new_X
@@ -224,15 +224,15 @@ class ExtendedKalmanFilter(KalmanFilterBase):
     def _get_F(self, X, dt=1):
         F = Variable(torch.eye(self.state_size, dtype=torch.float), requires_grad=False)
 
-        F[0, 2] = torch.sin(X[3, 0] + X[4, 0] * dt) * dt
-        F[0, 3] = torch.cos(X[3, 0] + X[4, 0] * dt) * X[2, 0] * dt
-        F[0, 4] = torch.cos(X[3, 0] + X[4, 0] * dt) * X[2, 0] * dt**2
-
-        F[1, 2] = torch.cos(X[3, 0] + X[4, 0] * dt) * dt
-        F[1, 3] = -torch.sin(X[3, 0] + X[4, 0] * dt) * X[2, 0] * dt
-        F[1, 4] = -torch.sin(X[3, 0] + X[4, 0] * dt) * X[2, 0] * dt**2
-
-        F[3, 4] = dt
+        # F[0, 2] = torch.sin(X[3, 0] + X[4, 0] * dt) * dt
+        # F[0, 3] = torch.cos(X[3, 0] + X[4, 0] * dt) * X[2, 0] * dt
+        # F[0, 4] = torch.cos(X[3, 0] + X[4, 0] * dt) * X[2, 0] * dt**2
+        #
+        # F[1, 2] = torch.cos(X[3, 0] + X[4, 0] * dt) * dt
+        # F[1, 3] = -torch.sin(X[3, 0] + X[4, 0] * dt) * X[2, 0] * dt
+        # F[1, 4] = -torch.sin(X[3, 0] + X[4, 0] * dt) * X[2, 0] * dt**2
+        #
+        # F[3, 4] = dt
 
         return F
 
@@ -295,7 +295,7 @@ class ExtendedKalmanFilter(KalmanFilterBase):
 
     def get_prediction(self, steps=1, dt=1):
         """Gets prediction or robot position after given number of steps"""
-        X = self.X
+        X = self.X.clone()
 
         for step in range(steps):
             X = self._f(X, dt)
